@@ -315,7 +315,7 @@ async function runSpecs({ resolvedTests }) {
         testReport = { result: "SKIPPED", ...testReport };
         testReport.contexts = test.contexts.map((context) => {
           const contextReport = { result: "SKIPPED", ...context };
-          contextReport.steps = context.steps.map((step) => {
+          contextReport.steps = (context.steps || []).map((step) => {
             const stepReport =  {
               ...step,
               result: "SKIPPED",
