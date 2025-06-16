@@ -3,7 +3,6 @@ const { runTests } = require("../src");
 const { createServer } = require("./server");
 const assert = require("assert").strict;
 const path = require("path");
-const { runShell } = require("../src/tests/runShell");
 const artifactPath = path.resolve("./test/artifacts");
 const config_base = require(`${artifactPath}/config.json`);
 const inputPath = artifactPath;
