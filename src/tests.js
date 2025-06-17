@@ -210,6 +210,17 @@ async function setViewportSize(context, driver) {
   }
 }
 
+async function allowUnsafeTests({ config }) {
+  // If allowUnsafeTests is set to true, return true
+  if (config.allowUnsafeTests === true) return true;
+  // If allowUnsafeTests is set to false, return false
+  else if (config.allowUnsafeTests === false) return false;
+  // if DOC_DETECTIVE.container is set to true, return true
+  else if (process.env.DOC_DETECTIVE && JSON.parse(process.env.DOC_DETECTIVE).container) return true;
+  // If allowUnsafeTests is not set, return false by default
+  else return false;
+}
+
 // Iterate through and execute test specifications and contained tests.
 async function runSpecs({ resolvedTests }) {
   const config = resolvedTests.config;
@@ -219,6 +230,7 @@ async function runSpecs({ resolvedTests }) {
   const runnerDetails = {
     environment: getEnvironment(),
     availableApps: await getAvailableApps({ config }),
+    allowUnsafeTests: await allowUnsafeTests({ config }),
   };
 
   // Set initial shorthand values
@@ -310,7 +322,7 @@ async function runSpecs({ resolvedTests }) {
       metaValues.specs[spec.specId].tests[test.testId] = { contexts: [] };
 
       // If a test is marked as potentially unsafe and the config is set to not run unsafe tests, skip it, marking all contained contexts and steps as skipped.
-      if (test.unsafe && !config.allowUnsafeTests) {
+      if (test.unsafe && runnerDetails.allowUnsafeTests === false) {
         log(config, "warning", `Skipping unsafe test: ${test.testId}`);
         testReport = { result: "SKIPPED", ...testReport };
         testReport.contexts = test.contexts.map((context) => {
