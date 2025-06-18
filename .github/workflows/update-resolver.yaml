@@ -75,15 +75,16 @@ jobs:
         # Get current project version
         PROJ_VERSION=$(node -p "require('./package.json').version")
         # Get doc-detective-resolver version (strip ^ or ~)
-        RESOLVER_VERSION=$(node -p "(require('./package.json').dependencies['doc-detective-resolver'] || require('./package.json').devDependencies['doc-detective-resolver'] || '').replace(/^[^\\d]*/, '')")
+        RESOLVER_VERSION=$(node -p 'require("./package.json").dependencies?.["doc-detective-resolver"] || require("./package.json").devDependencies?.["doc-detective-resolver"] || ""')
+        RESOLVER_VERSION=$(echo "$RESOLVER_VERSION" | sed 's/^[^0-9]*//')
         # Parse versions
         PROJ_MAJOR=$(echo $PROJ_VERSION | cut -d. -f1)
         PROJ_MINOR=$(echo $PROJ_VERSION | cut -d. -f2)
-        resolver_MAJOR=$(echo $RESOLVER_VERSION | cut -d. -f1)
-        resolver_MINOR=$(echo $RESOLVER_VERSION | cut -d. -f2)
-        if [ "$PROJ_MAJOR" != "$resolver_MAJOR" ] || [ "$PROJ_MINOR" != "$resolver_MINOR" ]; then
+        RESOLVER_MAJOR=$(echo $RESOLVER_VERSION | cut -d. -f1)
+        RESOLVER_MINOR=$(echo $RESOLVER_VERSION | cut -d. -f2)
+        if [ "$PROJ_MAJOR" != "$RESOLVER_MAJOR" ] || [ "$PROJ_MINOR" != "$RESOLVER_MINOR" ]; then
           # Major or minor mismatch: set version to match doc-detective-resolver major.minor.0
-          NEW_VERSION="$resolver_MAJOR.$resolver_MINOR.0"
+          NEW_VERSION="$RESOLVER_MAJOR.$RESOLVER_MINOR.0"
           npm version --no-git-tag-version "$NEW_VERSION"
         else
           # Only patch changed: bump patch
@@ -123,7 +124,7 @@ jobs:
         fi
 
     - name: Fetch doc-detective-resolver release notes
-      id: resolver_release
+      id: RESOLVER_release
       run: |
         RESOLVER_VERSION=${{ steps.version.outputs.version }}
         # Remove ^ or ~ if present
@@ -143,7 +144,7 @@ jobs:
 
           - Updated doc-detective-resolver to v${{ steps.patch.outputs.version }}:
 
-            ${{ steps.resolver_release.outputs.release_notes }}
+            ${{ steps.RESOLVER_release.outputs.release_notes }}
 
           ${{ steps.merged_prs.outputs.prs }}
         tag_name: "v${{ steps.patch.outputs.version }}"
