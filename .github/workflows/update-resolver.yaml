@@ -122,6 +122,8 @@ jobs:
           echo "$PRS" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
         fi
+      env:
+        GITHUB_TOKEN: ${{ secrets.DD_DEP_UPDATE_TOKEN }}
 
     - name: Fetch doc-detective-resolver release notes
       id: RESOLVER_release
@@ -134,6 +136,8 @@ jobs:
         echo "release_notes<<EOF" >> $GITHUB_OUTPUT
         echo "$RELEASE_INFO" >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
+      env:
+        GITHUB_TOKEN: ${{ secrets.DD_DEP_UPDATE_TOKEN }}
 
     - name: Create release with detailed notes
       if: steps.commit.outputs.has_changes == 'true'
