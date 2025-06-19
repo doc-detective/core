@@ -2,7 +2,7 @@
 // const { exit } = require("node:process");
 // const wdio = require("webdriverio");
 // const { spawnCommand } = require("./src/utils");
-const { runTests, runCoverage, suggestTests } = require("../src");
+const { runTests } = require("../src");
 const { validate, schemas } = require("doc-detective-common");
 const { execCommand, spawnCommand } = require("../src/utils");
 const path = require("path");

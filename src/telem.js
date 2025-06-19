@@ -68,8 +68,8 @@ function sendTelemetry(config, command, results) {
   telemetryData.dist_deployment_version = telemetryData.dist_deployment_version || telemetryData.core_deployment_version;
   const distinctId = config?.telemetry?.userId || "anonymous";
 
-  // parse results to assemble flat list of properties for runTests and runCoverage actions
-  if (command === "runTests" || command === "runCoverage") {
+  // parse results to assemble flat list of properties for runTests actions
+  if (command === "runTests") {
     // Get summary data
     Object.entries(results.summary).forEach(([parentKey, value]) => {
       if (typeof value === "object") {

@@ -25,18 +25,6 @@
       }
     ]
   },
-  "runCoverage": {
-    "recursive": true,
-    "input": ".dev/",
-    "output": ".",
-    "markup": []
-  },
-  "suggestTests": {
-    "recursive": true,
-    "input": ".",
-    "output": ".",
-    "markup": []
-  },
   "integrations": {
     "openApi": [
       {
