@@ -1,6 +1,6 @@
 {
   "name": "doc-detective-core",
-  "version": "3.1.0",
+  "version": "3.1.1-dev.0",
   "description": "The doc testing framework.",
   "main": "src/index.js",
   "scripts": {
@@ -27,7 +27,7 @@
   },
   "homepage": "https://github.com/doc-detective/doc-detective-core#readme",
   "dependencies": {
-    "@apidevtools/json-schema-ref-parser": "^13.0.5",
+    "@apidevtools/json-schema-ref-parser": "^14.0.2",
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "@puppeteer/browsers": "^2.10.5",
     "ajv": "^8.17.1",
@@ -36,8 +36,8 @@
     "appium-geckodriver": "^1.4.3",
     "appium-safari-driver": "^3.5.25",
     "axios": "^1.10.0",
-    "doc-detective-common": "^3.1.0",
-    "doc-detective-resolver": "^3.1.0",
+    "doc-detective-common": "^3.1.1-dev.0",
+    "doc-detective-resolver": "^3.1.1-dev.0",
     "dotenv": "^16.5.0",
     "geckodriver": "^5.0.0",
     "jq-web": "^0.6.2",

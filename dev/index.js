@@ -27,7 +27,8 @@ main();
 
 async function main() {
   const json = {
-    input: "/home/hawkeyexl/Workspaces/doc-detective-core/test/artifacts/screenshot.spec.json",
+    input: "dev/dev.spec.yaml",
+    allowUnsafeSteps: false,
     logLevel: "debug",
   };
   // console.log(json);

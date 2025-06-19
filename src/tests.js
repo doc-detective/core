@@ -210,14 +210,14 @@ async function setViewportSize(context, driver) {
   }
 }
 
-async function allowUnsafeTests({ config }) {
-  // If allowUnsafeTests is set to true, return true
-  if (config.allowUnsafeTests === true) return true;
-  // If allowUnsafeTests is set to false, return false
-  else if (config.allowUnsafeTests === false) return false;
+async function allowUnsafeSteps({ config }) {
+  // If allowUnsafeSteps is set to true, return true
+  if (config.allowUnsafeSteps === true) return true;
+  // If allowUnsafeSteps is set to false, return false
+  else if (config.allowUnsafeSteps === false) return false;
   // if DOC_DETECTIVE.container is set to true, return true
   else if (process.env.DOC_DETECTIVE && JSON.parse(process.env.DOC_DETECTIVE).container) return true;
-  // If allowUnsafeTests is not set, return false by default
+  // If allowUnsafeSteps is not set, return false by default
   else return false;
 }
 
@@ -230,7 +230,7 @@ async function runSpecs({ resolvedTests }) {
   const runnerDetails = {
     environment: getEnvironment(),
     availableApps: await getAvailableApps({ config }),
-    allowUnsafeTests: await allowUnsafeTests({ config }),
+    allowUnsafeSteps: await allowUnsafeSteps({ config }),
   };
 
   // Set initial shorthand values
@@ -320,28 +320,6 @@ async function runSpecs({ resolvedTests }) {
       };
       // Set meta values
       metaValues.specs[spec.specId].tests[test.testId] = { contexts: [] };
-
-      // If a test is marked as potentially unsafe and the config is set to not run unsafe tests, skip it, marking all contained contexts and steps as skipped.
-      if (test.unsafe && runnerDetails.allowUnsafeTests === false) {
-        log(config, "warning", `Skipping unsafe test: ${test.testId}`);
-        testReport = { result: "SKIPPED", ...testReport };
-        testReport.contexts = test.contexts.map((context) => {
-          const contextReport = { result: "SKIPPED", ...context };
-          contextReport.steps = (context.steps || []).map((step) => {
-            const stepReport =  {
-              ...step,
-              result: "SKIPPED",
-            };
-            report.summary.steps.skipped++;
-            return stepReport;
-          });
-          report.summary.contexts.skipped++;
-          return contextReport;
-        });
-        report.summary.tests.skipped++;
-        specReport.tests.push(testReport);
-        continue;
-      }
 
       // Iterate contexts
       // TODO: Support both serial and parallel execution
@@ -473,10 +451,29 @@ async function runSpecs({ resolvedTests }) {
         // Iterates steps
         let stepExecutionFailed = false;
         for (let step of context.steps) {
+          // Set step id if not defined
+          if (!step.stepId) step.stepId = `${uuid.v4()}`;
+          log(config, "debug", `STEP:\n${JSON.stringify(step, null, 2)}`);
+
+
+          if (step.unsafe && runnerDetails.allowUnsafeSteps === false) {
+            log(
+              config,
+              "warning",
+              `Skipping unsafe step: ${step.description} in test ${test.testId} context ${context.contextId}`
+            );
+            // Mark as skipped
+            const stepReport = {
+              ...step,
+              result: "SKIPPED",
+              resultDescription: "Skipped because unsafe steps aren't allowed."
+            };
+            contextReport.steps.push(stepReport);
+            report.summary.steps.skipped++;
+            continue;
+          }
 
           if (stepExecutionFailed) {
-            // Set step id if not defined
-            if (!step.stepId) step.stepId = `${uuid.v4()}`;
             // Mark as skipped
             const stepReport = {
               ...step,
@@ -487,10 +484,6 @@ async function runSpecs({ resolvedTests }) {
             report.summary.steps.skipped++;
             continue;
           }
-
-          // Set step id if not defined
-          if (!step.stepId) step.stepId = `${uuid.v4()}`;
-          log(config, "debug", `STEP:\n${JSON.stringify(step, null, 2)}`);
 
           // Set meta values
           metaValues.specs[spec.specId].tests[test.testId].contexts[

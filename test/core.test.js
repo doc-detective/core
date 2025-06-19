@@ -97,7 +97,7 @@ describe("Run tests successfully", function () {
     const config = {
       input: tempFilePath,
       logLevel: "debug",
-      allowUnsafeTests: false,
+      allowUnsafeSteps: false,
     };
     let result;
     try {
