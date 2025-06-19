@@ -1,0 +1,10 @@
+tests:
+- description: "Debug test with simple steps"
+  steps:
+  - description: "First step - should pause in step-through mode"
+    wait: 100
+  - description: "Second step with breakpoint"
+    breakpoint: true
+    wait: 200
+  - description: "Third step - normal execution"
+    wait: 300

@@ -1,0 +1,9 @@
+tests:
+- description: "Debug test without breakpoints"
+  steps:
+  - description: "First step"
+    wait: 100
+  - description: "Second step"
+    wait: 200
+  - description: "Third step"
+    wait: 300

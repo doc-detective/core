@@ -1,7 +1,7 @@
 const kill = require("tree-kill");
 const wdio = require("webdriverio");
 const os = require("os");
-const { log, replaceEnvs } = require("./utils");
+const { log, replaceEnvs, promptUserInput } = require("./utils");
 const axios = require("axios");
 const { instantiateCursor } = require("./tests/moveTo");
 const { goTo } = require("./tests/goTo");
@@ -225,6 +225,32 @@ async function allowUnsafeSteps({ config }) {
 async function runSpecs({ resolvedTests }) {
   const config = resolvedTests.config;
   const specs = resolvedTests.specs;
+
+  // Handle debug configuration (extract from environment or global if available)
+  let debugConfig = null;
+  try {
+    // Check for debug configuration in environment variable
+    if (process.env.DOC_DETECTIVE_DEBUG) {
+      debugConfig = JSON.parse(process.env.DOC_DETECTIVE_DEBUG);
+    }
+    // Check if global debug config was set
+    else if (global.docDetectiveDebug) {
+      debugConfig = global.docDetectiveDebug;
+    }
+  } catch (e) {
+    // Ignore parsing errors
+  }
+
+  // Add debug config to the config object
+  if (debugConfig) {
+    config.debug = {
+      enabled: debugConfig.enabled !== false, // Default to true if debug object exists
+      stepThrough: debugConfig.stepThrough === true,
+      breakOnFail: debugConfig.breakOnFail === true,
+      breakpoints: Array.isArray(debugConfig.breakpoints) ? debugConfig.breakpoints : [],
+      ...debugConfig
+    };
+  }
 
   // Get runner details
   const runnerDetails = {
@@ -490,6 +516,56 @@ async function runSpecs({ resolvedTests }) {
             context.contextId
           ].steps[step.stepId] = {};
 
+          // Debug mode: Check for breakpoints and step-through
+          if (config.debug?.enabled) {
+            let shouldPause = false;
+            let pauseReason = "";
+
+            // Check if step-through mode is enabled
+            if (config.debug.stepThrough) {
+              shouldPause = true;
+              pauseReason = "step-through mode";
+            }
+
+            // Check if step has a breakpoint
+            if (config.debug.breakpoints?.length > 0) {
+              const hasBreakpoint = config.debug.breakpoints.some(bp => {
+                return bp === step.stepId || 
+                       bp === step.description ||
+                       (step.description && step.description.includes(bp));
+              });
+              if (hasBreakpoint) {
+                shouldPause = true;
+                pauseReason = "breakpoint";
+              }
+            }
+
+            // Check if step has breakpoint property
+            if (step.breakpoint === true) {
+              shouldPause = true;
+              pauseReason = "step breakpoint";
+            }
+
+            if (shouldPause) {
+              console.log(`\n=== DEBUG PAUSE (${pauseReason}) ===`);
+              console.log(`Test: ${test.description || test.testId}`);
+              console.log(`Context: ${context.contextId}`);
+              console.log(`Step: ${step.description || JSON.stringify(step)}`);
+              console.log(`Step ID: ${step.stepId}`);
+              
+              const input = await promptUserInput("Press Enter to continue, 'q' to quit, 'c' to continue without stopping");
+              
+              if (input === 'q' || input === 'quit') {
+                log(config, "info", "Debug session terminated by user");
+                process.exit(0);
+              } else if (input === 'c' || input === 'continue') {
+                // Disable step-through mode for remaining steps
+                config.debug.stepThrough = false;
+                log(config, "info", "Step-through mode disabled, continuing normally");
+              }
+            }
+          }
+
           // Run step
           const stepResult = await runStep({
             config: config,
@@ -519,6 +595,23 @@ async function runSpecs({ resolvedTests }) {
           };
           contextReport.steps.push(stepReport);
           report.summary.steps[stepReport.result.toLowerCase()]++;
+
+          // Debug mode: Check for break-on-fail
+          if (config.debug?.enabled && config.debug.breakOnFail && stepReport.result === "FAIL") {
+            console.log(`\n=== DEBUG PAUSE (step failed) ===`);
+            console.log(`Test: ${test.description || test.testId}`);
+            console.log(`Context: ${context.contextId}`);
+            console.log(`Failed Step: ${step.description || JSON.stringify(step)}`);
+            console.log(`Step ID: ${step.stepId}`);
+            console.log(`Error: ${stepReport.resultDescription}`);
+            
+            const input = await promptUserInput("Step failed. Press Enter to continue, 'q' to quit");
+            
+            if (input === 'q' || input === 'quit') {
+              log(config, "info", "Debug session terminated by user");
+              process.exit(0);
+            }
+          }
 
           // If this step failed, set flag to skip remaining steps
           if (stepReport.result === "FAIL") {

@@ -320,7 +320,7 @@ async function getAvailableApps({ config }) {
   const chrome = installedBrowsers.find(
     (browser) => browser.browser === "chrome"
   );
-  const chromeVersion = chrome.buildId;
+  const chromeVersion = chrome?.buildId;
   const chromedriver = installedBrowsers.find(
     (browser) => browser.browser === "chromedriver"
   );
@@ -332,8 +332,8 @@ async function getAvailableApps({ config }) {
     apps.push({
       name: "chrome",
       version: chromeVersion,
-      path: chrome.executablePath,
-      driver: chromedriver.executablePath,
+      path: chrome?.executablePath,
+      driver: chromedriver?.executablePath,
     });
   }
 
@@ -348,8 +348,8 @@ async function getAvailableApps({ config }) {
   if (firefox && appiumFirefox) {
     apps.push({
       name: "firefox",
-      version: firefox.buildId,
-      path: firefox.executablePath,
+      version: firefox?.buildId,
+      path: firefox?.executablePath,
     });
   }
 
