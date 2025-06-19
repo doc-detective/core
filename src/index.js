@@ -15,6 +15,16 @@ const supportMessage = `
 
 // Run tests defined in specifications and documentation source files.
 async function runTests(config) {
+  // Handle debug configuration before resolution
+  if (config.debug) {
+    // Store debug config globally since it can't go through schema validation
+    global.docDetectiveDebug = config.debug;
+    // Remove debug from config to avoid validation errors
+    const configCopy = { ...config };
+    delete configCopy.debug;
+    config = configCopy;
+  }
+
   // Telemetry notice
   telemetryNotice(config);
 

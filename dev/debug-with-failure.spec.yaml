@@ -1,0 +1,9 @@
+tests:
+- description: "Debug test with failure"
+  steps:
+  - description: "First step - should pass"
+    wait: 100
+  - description: "Second step - will fail"
+    runShell: "exit 1"
+  - description: "Third step - should be skipped"
+    wait: 300

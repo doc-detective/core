@@ -15,6 +15,7 @@ exports.cleanTemp = cleanTemp;
 exports.calculatePercentageDifference = calculatePercentageDifference;
 exports.fetchFile = fetchFile;
 exports.isRelativeUrl = isRelativeUrl;
+exports.promptUserInput = promptUserInput;
 
 function isRelativeUrl(url) {
   try {
@@ -296,4 +297,20 @@ function llevenshteinDistance(s, t) {
   }
 
   return arr[t.length][s.length];
+}
+
+// Prompt user for input in debug mode
+function promptUserInput(message = "Press Enter to continue, 'q' to quit, 'c' to continue without stopping") {
+  return new Promise((resolve) => {
+    const readline = require('readline');
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout
+    });
+
+    rl.question(message + ": ", (answer) => {
+      rl.close();
+      resolve(answer.trim().toLowerCase());
+    });
+  });
 }
