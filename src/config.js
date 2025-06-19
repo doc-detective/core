@@ -20,6 +20,7 @@ const platformMap = {
 };
 
 // List of default apps to check for
+// Note: Edge/Microsoft Edge is not supported and detection is intentionally excluded
 const defaultAppIDs = {
   chromium: {
     linux: "chromium-browser",
@@ -311,6 +312,9 @@ async function getAvailableApps({ config }) {
     cacheDir: path.resolve("browser-snapshots"),
   });
   const installedAppiumDrivers = await spawnCommand("npx appium driver list");
+
+  // Note: Edge/Microsoft Edge detection is intentionally excluded
+  // Only Chrome, Firefox, and Safari are supported browsers
 
   // Detect Chrome
   const chrome = installedBrowsers.find(
