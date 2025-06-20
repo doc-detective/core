@@ -661,6 +661,7 @@ async function runSpecs({ resolvedTests }) {
 
       // Execute contexts using TestRunner for parallel execution
       const concurrentRunners = config.concurrentRunners || resolvedTests.config.concurrentRunners || 1;
+      log(config, "debug", `Using ${concurrentRunners} concurrent runners for ${test.contexts.length} contexts`);
       const testRunner = new TestRunner(concurrentRunners);
       
       // Prepare contexts for execution
