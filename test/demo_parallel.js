@@ -20,10 +20,20 @@ async function comprehensiveDemo() {
       name: "Parallel (4 workers)",
       concurrentRunners: 4,
       description: "High parallelization"
+    },
+    {
+      name: "Parallel (8 workers)",
+      concurrentRunners: 8,
+      description: "Very high parallelization"
+    },
+    {
+      name: "Parallel (16 workers)",
+      concurrentRunners: 16,
+      description: "Maximum parallelization for this demo"
     }
   ];
 
-  // Create test with 6 contexts to show scaling
+  // Create test with 16 contexts to show scaling
   const resolvedTests = {
     config: { logLevel: "error" },
     specs: [
@@ -33,12 +43,13 @@ async function comprehensiveDemo() {
         tests: [
           {
             testId: "demo-test",
-            description: "Test with 6 contexts",
-            contexts: Array.from({ length: 6 }, (_, i) => ({
+            description: "Test with 16 contexts",
+            contexts: Array.from({ length: 16 }, (_, i) => ({
               contextId: `context-${i + 1}`,
               steps: [
                 { runShell: `echo 'Context ${i + 1} starting'` },
-                { runShell: "sleep 0.8" },
+                { goTo: "http://example.com" },
+                { find: "Example Domain" },
                 { runShell: `echo 'Context ${i + 1} completed'` },
               ],
             })),
@@ -68,11 +79,11 @@ async function comprehensiveDemo() {
         duration,
         contexts: result.summary.contexts.pass,
         steps: result.summary.steps.pass,
-        successful: result.summary.contexts.pass === 6
+        successful: result.summary.contexts.pass === 16
       });
       
       console.log(`   ✅ Completed in ${duration}ms`);
-      console.log(`   📈 Contexts: ${result.summary.contexts.pass}/6, Steps: ${result.summary.steps.pass}/18\n`);
+      console.log(`   📈 Contexts: ${result.summary.contexts.pass}/16, Steps: ${result.summary.steps.pass}/64\n`);
       
     } catch (error) {
       console.log(`   ❌ Failed: ${error.message}\n`);
@@ -88,37 +99,50 @@ async function comprehensiveDemo() {
   // Summary analysis
   console.log("📈 Performance Analysis");
   console.log("=======================");
-  
-  const sequential = results.find(r => r.workers === 1);
-  const parallel2 = results.find(r => r.workers === 2);
-  const parallel4 = results.find(r => r.workers === 4);
-  
-  if (sequential && parallel2 && parallel4) {
-    console.log(`Sequential (1 worker):  ${sequential.duration}ms`);
-    console.log(`Parallel (2 workers):   ${parallel2.duration}ms (${(sequential.duration / parallel2.duration).toFixed(1)}x speedup)`);
-    console.log(`Parallel (4 workers):   ${parallel4.duration}ms (${(sequential.duration / parallel4.duration).toFixed(1)}x speedup)`);
-    
-    // Theoretical best case: 6 contexts with 0.8s sleep each
-    // Sequential: ~6 * 0.8s = 4.8s + overhead
-    // Parallel (2): ~3 * 0.8s = 2.4s + overhead  
-    // Parallel (4): ~2 * 0.8s = 1.6s + overhead
-    
-    const efficiency2 = (sequential.duration / 3) / parallel2.duration;
-    const efficiency4 = (sequential.duration / 6) / parallel4.duration;
-    
-    console.log(`\n🎯 Efficiency Analysis:`);
-    console.log(`2-worker efficiency: ${(efficiency2 * 100).toFixed(1)}% (theoretical max: 100%)`);
-    console.log(`4-worker efficiency: ${(efficiency4 * 100).toFixed(1)}% (theoretical max: 100%)`);
-    
-    if (parallel4.duration < sequential.duration * 0.7) {
-      console.log(`\n✅ Parallel execution is highly effective!`);
-    } else if (parallel4.duration < sequential.duration * 0.9) {
-      console.log(`\n👍 Parallel execution shows moderate improvement.`);
+
+  // Print all scenario results
+  results.forEach(r => {
+    if (r.duration >= 0) {
+      console.log(`${r.scenario.padEnd(22)}: ${r.duration}ms (${r.workers} workers)`);
     } else {
-      console.log(`\n⚠️  Parallel execution may not be optimal for this workload.`);
+      console.log(`${r.scenario.padEnd(22)}: Failed (${r.error})`);
+    }
+  });
+
+  // Calculate speedups and efficiencies for all scenarios
+  const sequential = results.find(r => r.workers === 1);
+  if (sequential) {
+    console.log("\n📊 Speedup Analysis:");
+    results.forEach(r => {
+      if (r.workers > 1 && r.duration > 0) {
+        const speedup = sequential.duration / r.duration;
+        console.log(`${r.workers} workers: ${(speedup).toFixed(2)}x speedup over sequential`);
+      }
+    });
+
+    // Efficiency: (speedup / workers) * 100%
+    console.log("\n🎯 Efficiency Analysis:");
+    results.forEach(r => {
+      if (r.workers > 1 && r.duration > 0) {
+        const speedup = sequential.duration / r.duration;
+        const efficiency = (speedup / r.workers) * 100;
+        console.log(`${r.workers} workers: ${efficiency.toFixed(1)}% efficiency (theoretical max: 100%)`);
+      }
+    });
+
+    // Highlight best scenario
+    const best = results.filter(r => r.duration > 0).sort((a, b) => a.duration - b.duration)[0];
+    if (best && best.workers > 1) {
+      if (best.duration < sequential.duration * 0.7) {
+        console.log(`\n✅ Parallel execution is highly effective at ${best.workers} workers!`);
+      } else if (best.duration < sequential.duration * 0.9) {
+        console.log(`\n👍 Parallel execution shows moderate improvement at ${best.workers} workers.`);
+      } else {
+        console.log(`\n⚠️  Parallel execution may not be optimal for this workload.`);
+      }
     }
   }
-  
+
   console.log(`\n🏁 Demo completed successfully! All scenarios executed with proper isolation.`);
 }
 
