@@ -1,58 +1,6 @@
 const assert = require("assert").strict;
-const { executeTestContext } = require("../src/tests");
+const { executeTestContext, TestRunner } = require("../src/tests");
 const path = require("path");
-
-// Import TestRunner class
-// We need to create a simple way to test the TestRunner
-// Since it's not exported, let's create a test version
-
-class TestRunner {
-  constructor(concurrentRunners = 1) {
-    this.maxWorkers = Math.max(1, concurrentRunners);
-    this.contextQueue = [];
-    this.results = [];
-  }
-
-  async runTests(resolvedContexts, executionParams) {
-    this.contextQueue = [...resolvedContexts];
-    this.results = [];
-    
-    // Create worker promises
-    const workers = Array.from({ length: this.maxWorkers }, () => 
-      this.createWorker(executionParams)
-    );
-    
-    await Promise.allSettled(workers);
-    return this.results;
-  }
-
-  async createWorker(executionParams) {
-    while (this.contextQueue.length > 0) {
-      const contextData = this.contextQueue.shift();
-      if (!contextData) break;
-      
-      try {
-        const result = await executeTestContext({
-          ...contextData,
-          ...executionParams,
-        });
-        this.results.push(result);
-      } catch (error) {
-        const errorResult = {
-          contextReport: { 
-            result: "FAIL", 
-            platform: contextData.context.platform,
-            browser: contextData.context.browser,
-            steps: [],
-            error: error.message 
-          },
-          summary: { contexts: { fail: 1 }, steps: { pass: 0, fail: 0, warning: 0, skipped: 0 } }
-        };
-        this.results.push(errorResult);
-      }
-    }
-  }
-}
 
 describe("TestRunner Parallel Execution", function () {
   this.timeout(30000);

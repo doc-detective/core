@@ -559,6 +559,9 @@ class TestRunner {
   }
 }
 
+// Export the TestRunner class
+exports.TestRunner = TestRunner;
+
 // Iterate through and execute test specifications and contained tests.
 async function runSpecs({ resolvedTests }) {
   const config = resolvedTests.config;
