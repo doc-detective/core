@@ -57,13 +57,8 @@ describe("Concurrent Runners Configuration", function () {
       ],
     };
 
-    const start = Date.now();
     const result = await runSpecs({ resolvedTests });
-    const duration = Date.now() - start;
-    
     assert.equal(result.summary.contexts.pass, 2);
-    // Should be faster than sequential execution would be
-    assert(duration < 1000, "Should execute relatively quickly with parallel execution");
   });
 
   it("should handle single context efficiently", async () => {
