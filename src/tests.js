@@ -520,7 +520,8 @@ class TestRunner {
 
   async runTests(resolvedContexts, executionParams) {
     this.contextQueue = [...resolvedContexts];
-    this.results = [];
+    this.results = new Array(resolvedContexts.length); // Pre-allocate to maintain order
+    this.currentIndex = 0;
     
     // Create worker promises
     const workers = Array.from({ length: this.maxWorkers }, () => 
@@ -532,8 +533,9 @@ class TestRunner {
   }
 
   async createWorker(executionParams) {
-    while (this.contextQueue.length > 0) {
-      const contextData = this.contextQueue.shift();
+    while (this.currentIndex < this.contextQueue.length) {
+      const index = this.currentIndex++;
+      const contextData = this.contextQueue[index];
       if (!contextData) break;
       
       try {
@@ -541,7 +543,7 @@ class TestRunner {
           ...contextData,
           ...executionParams,
         });
-        this.results.push(result);
+        this.results[index] = result;
       } catch (error) {
         const errorResult = {
           contextReport: { 
@@ -553,7 +555,7 @@ class TestRunner {
           },
           summary: { contexts: { fail: 1 }, steps: { pass: 0, fail: 0, warning: 0, skipped: 0 } }
         };
-        this.results.push(errorResult);
+        this.results[index] = errorResult;
       }
     }
   }
@@ -632,115 +634,112 @@ async function runSpecs({ resolvedTests }) {
     log(config, "debug", "Appium is ready.");
   }
 
-  // Iterate specs
+  // Collect all contexts from all specs and tests for parallel execution
   log(config, "info", "Running test specs.");
+  const allContexts = [];
+  const contextToLocation = new Map(); // Map context execution to its spec/test location
+  
+  // Initialize spec and test reports structure
   for (const spec of specs) {
-    log(config, "debug", `SPEC: ${spec.specId}`);
-
-    // Set spec report
-    let specReport = {
+    const specReport = {
       specId: spec.specId,
       description: spec.description,
       contentPath: spec.contentPath,
       tests: [],
     };
-    // Set meta values
+    report.specs.push(specReport);
     metaValues.specs[spec.specId] = { tests: {} };
 
-    // Iterates tests
     for (const test of spec.tests) {
-      log(config, "debug", `TEST: ${test.testId}`);
-
-      // Set test report
-      let testReport = {
+      const testReport = {
         testId: test.testId,
         description: test.description,
         contentPath: test.contentPath,
         detectSteps: test.detectSteps,
         contexts: [],
       };
-      // Set meta values
+      specReport.tests.push(testReport);
       metaValues.specs[spec.specId].tests[test.testId] = { contexts: [] };
 
-      // Execute contexts using TestRunner for parallel execution
-      const concurrentRunners = config.concurrentRunners || resolvedTests.config.concurrentRunners || 1;
-      log(config, "debug", `Using ${concurrentRunners} concurrent runners for ${test.contexts.length} contexts`);
-      const testRunner = new TestRunner(concurrentRunners);
-      
-      // Prepare contexts for execution
-      const contextData = test.contexts.map(context => ({
-        context,
-        spec,
-        test,
-      }));
-      
-      // Execute contexts
-      const contextResults = await testRunner.runTests(contextData, {
-        config,
-        runnerDetails,
-        availableApps,
-        platform,
-        metaValues,
-      });
-      
-      // Process results and update reports
-      for (const result of contextResults) {
-        testReport.contexts.push(result.contextReport);
-        
-        // Update summary counters
-        const contextResult = result.contextReport.result.toLowerCase();
-        report.summary.contexts[contextResult]++;
-        
-        // Update step counters
-        for (const [stepResult, count] of Object.entries(result.summary.steps)) {
-          report.summary.steps[stepResult] += count;
-        }
+      // Add each context to the global execution queue
+      for (const context of test.contexts) {
+        const contextData = {
+          context,
+          spec,
+          test,
+        };
+        allContexts.push(contextData);
+        contextToLocation.set(contextData, { specReport, testReport });
       }
+    }
+  }
 
+  // Execute all contexts in parallel using TestRunner
+  const concurrentRunners = config.concurrentRunners || resolvedTests.config.concurrentRunners || 1;
+  log(config, "info", `Using ${concurrentRunners} concurrent runners for ${allContexts.length} total contexts across all specs and tests`);
+  const testRunner = new TestRunner(concurrentRunners);
+  
+  const contextResults = await testRunner.runTests(allContexts, {
+    config,
+    runnerDetails,
+    availableApps,
+    platform,
+    metaValues,
+  });
+
+  // Process results and organize them back into spec/test structure
+  for (let i = 0; i < contextResults.length; i++) {
+    const result = contextResults[i];
+    const contextData = allContexts[i];
+    const location = contextToLocation.get(contextData);
+    
+    // Add context result to appropriate test report
+    location.testReport.contexts.push(result.contextReport);
+    
+    // Update summary counters
+    const contextResult = result.contextReport.result.toLowerCase();
+    report.summary.contexts[contextResult]++;
+    
+    // Update step counters
+    for (const [stepResult, count] of Object.entries(result.summary.steps)) {
+      report.summary.steps[stepResult] += count;
+    }
+  }
+
+  // Calculate test and spec results based on context results
+  for (const specReport of report.specs) {
+    for (const testReport of specReport.tests) {
       // Parse context results to calc test result
-
-      // If any context fails, test fails
+      let testResult;
       if (testReport.contexts.find((context) => context.result === "FAIL"))
         testResult = "FAIL";
-      // If any context warns, test warns
-      else if (
-        testReport.contexts.find((context) => context.result === "WARNING")
-      )
+      else if (testReport.contexts.find((context) => context.result === "WARNING"))
         testResult = "WARNING";
-      // If all contexts skipped, test skipped
       else if (
         testReport.contexts.length ===
-        testReport.contexts.filter((context) => context.result === "SKIPPED")
-          .length
+        testReport.contexts.filter((context) => context.result === "SKIPPED").length
       )
         testResult = "SKIPPED";
-      // If all contexts pass, test passes
       else testResult = "PASS";
 
-      testReport = { result: testResult, ...testReport };
-      specReport.tests.push(testReport);
+      testReport.result = testResult;
       report.summary.tests[testResult.toLowerCase()]++;
     }
 
     // Parse test results to calc spec result
-
-    // If any context fails, test fails
+    let specResult;
     if (specReport.tests.find((test) => test.result === "FAIL"))
       specResult = "FAIL";
-    // If any test warns, spec warns
     else if (specReport.tests.find((test) => test.result === "WARNING"))
       specResult = "WARNING";
-    // If all tests skipped, spec skipped
     else if (
       specReport.tests.length ===
       specReport.tests.filter((test) => test.result === "SKIPPED").length
     )
       specResult = "SKIPPED";
-    // If all contexts pass, test passes
     else specResult = "PASS";
 
-    specReport = { result: specResult, ...specReport };
-    report.specs.push(specReport);
+    specReport.result = specResult;
     report.summary.specs[specResult.toLowerCase()]++;
   }
 
