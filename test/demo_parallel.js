@@ -1,11 +1,20 @@
 // Comprehensive demonstration of parallel execution capabilities
 const { runSpecs } = require("../src/tests");
+const { createServer } = require("./server");
+
+// Create a server with custom options
+const server = createServer({
+  port: 8080,
+  staticDir: "./test/server/public",
+  logLevel: "silent",
+});
 
 async function comprehensiveDemo() {
   console.log("🚀 Comprehensive Parallel Execution Benchmark");
   console.log("==========================================\n");
 
-  const maxWorkers = 48; // Maximum number of parallel contexts
+  // Accept maxWorkers override from a -w argument
+  let maxWorkers = 16; // Default maximum number of parallel contexts
 
   console.log(
     `🔧 Configuring benchmark with up to ${maxWorkers} parallel contexts`
@@ -46,6 +55,113 @@ async function comprehensiveDemo() {
     }
   }
 
+  const testArray = [
+    {
+      testId: `demo-test-1`,
+      contexts: [
+        {
+          contextId: `context-1`,
+          steps: [
+            { goTo: "http://localhost:8080" },
+            { find: "Selection Elements" },
+            { click: "Option 1" },
+          ],
+        },
+      ],
+    },
+    {
+      testId: "demo-test-2",
+      contexts: [
+        {
+          contextId: `context-2`,
+          steps: [
+            { runShell: `echo 'Context 2'` },
+            {
+              runCode: {
+                language: "javascript",
+                code: `console.log('Running in context')`,
+              },
+            },
+          ],
+        },
+      ],
+    },
+    {
+      testId: "demo-test-3",
+      contexts: [
+        {
+          steps: [
+            {
+              runCode: {
+                language: "python",
+                code: `print('additional step')`,
+              },
+            },
+          ],
+        },
+      ],
+    },
+    {
+      testId: "demo-test-4",
+      contexts: [
+        {
+          contextId: `context-1-4`,
+          steps: [
+            {
+              httpRequest: {
+                url: "http://localhost:8080/api/users",
+                method: "post",
+                request: {
+                  body: {
+                    name: "$USER",
+                    job: "$JOB",
+                  },
+                },
+              },
+            },
+            {
+              httpRequest: {
+                url: "http://localhost:8080/api/users",
+                method: "post",
+                request: {
+                  body: {
+                    data: [
+                      {
+                        first_name: "George",
+                        last_name: "Bluth",
+                        id: 1,
+                      },
+                    ],
+                  },
+                },
+                response: {
+                  body: {
+                    data: [
+                      {
+                        first_name: "George",
+                        last_name: "Bluth",
+                      },
+                    ],
+                  },
+                },
+              },
+              variables: {
+                ID: "$$response.body.data[0].id",
+              },
+            },
+            {
+              httpRequest: {
+                url: "http://localhost:8080/api/$ID",
+                method: "get",
+                timeout: 1000,
+              },
+            },
+          ],
+        },
+      ],
+    },
+  ];
+
   // Create test with n contexts to show scaling
   const resolvedTests = {
     config: { logLevel: "error" },
@@ -53,26 +169,18 @@ async function comprehensiveDemo() {
       {
         specId: "demo-spec",
         description: "Parallel execution demo",
-        tests: [
-          {
-            testId: "demo-test",
-            description: "Test with maxWorkers contexts",
-            contexts: Array.from({ length: maxWorkers }, (_, i) => ({
-              contextId: `context-${i + 1}`,
-              steps: [
-                { runShell: `echo 'Context ${i + 1} starting'` },
-                { goTo: "http://example.com" },
-                { find: "Example Domain" },
-                { runShell: `echo 'Context ${i + 1} completed'` },
-              ],
-            })),
-          },
-        ],
+        tests: [],
       },
     ],
   };
 
+  for (let i = 0; i < maxWorkers; i++) {
+    resolvedTests.specs[0].tests.push(...testArray);
+  }
+
   const results = [];
+
+  await server.start();
 
   for (const scenario of scenarios) {
     console.log(`📊 Testing: ${scenario.name}`);
@@ -113,6 +221,8 @@ async function comprehensiveDemo() {
       });
     }
   }
+
+  await server.stop();
 
   // Summary analysis
   console.log("📈 Performance Analysis");
@@ -177,9 +287,7 @@ async function comprehensiveDemo() {
     }
   }
 
-  console.log(
-    `\n🏁 Benchmark completed successfully! All scenarios executed.`
-  );
+  console.log(`\n🏁 Benchmark completed successfully! All scenarios executed.`);
 }
 
 comprehensiveDemo().catch(console.error);
