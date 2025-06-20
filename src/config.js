@@ -320,7 +320,7 @@ async function getAvailableApps({ config }) {
   const chrome = installedBrowsers.find(
     (browser) => browser.browser === "chrome"
   );
-  const chromeVersion = chrome.buildId;
+  const chromeVersion = chrome?.buildId;
   const chromedriver = installedBrowsers.find(
     (browser) => browser.browser === "chromedriver"
   );
@@ -354,7 +354,8 @@ async function getAvailableApps({ config }) {
   }
 
   // Detect Safari
-  if (config.environment.platform === "mac") {
+  const environment = config.environment || getEnvironment();
+  if (environment.platform === "mac") {
     const safariVersion = await spawnCommand(
       "defaults read /Applications/Safari.app/Contents/Info.plist CFBundleShortVersionString"
     );
