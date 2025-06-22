@@ -195,7 +195,7 @@ describe("TestRunner Parallel Execution", function () {
       {
         context: {
           contextId: "context-1",
-          steps: [{ runShell: "sleep 0.1 && echo 'context 1'" }],
+          steps: [{ runShell: "echo 'context 1'" }],
         },
         spec: { specId: "spec-1" },
         test: { testId: "test-1" },
@@ -203,7 +203,7 @@ describe("TestRunner Parallel Execution", function () {
       {
         context: {
           contextId: "context-2", 
-          steps: [{ runShell: "sleep 0.1 && echo 'context 2'" }],
+          steps: [{ runShell: "echo 'context 2'" }],
         },
         spec: { specId: "spec-1" },
         test: { testId: "test-1" },
@@ -211,7 +211,7 @@ describe("TestRunner Parallel Execution", function () {
       {
         context: {
           contextId: "context-3", 
-          steps: [{ runShell: "sleep 0.1 && echo 'context 3'" }],
+          steps: [{ runShell: "echo 'context 3'" }],
         },
         spec: { specId: "spec-1" },
         test: { testId: "test-1" },
@@ -219,22 +219,23 @@ describe("TestRunner Parallel Execution", function () {
       {
         context: {
           contextId: "context-4", 
-          steps: [{ runShell: "sleep 0.1 && echo 'context 4'" }],
+          steps: [{ runShell: "echo 'context 4'" }],
         },
         spec: { specId: "spec-1" },
         test: { testId: "test-1" },
       },
     ];
 
+    const platform = process.platform === "win32" ? "windows" : process.platform === "darwin" ? "mac" : "linux";
     const executionParams = {
       config: { logLevel: "error" },
       runnerDetails: {
-        environment: { platform: "linux" },
+        environment: { platform },
         availableApps: [],
         allowUnsafeSteps: true,
       },
       availableApps: [],
-      platform: "linux",
+      platform,
       metaValues: {
         specs: {
           "spec-1": {
