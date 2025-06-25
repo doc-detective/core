@@ -108,3 +108,23 @@ dist
 
 # Browser snapshots
 browser-snapshots
+
+# Doc Detective test artifacts
+test/artifacts/output/*.txt
+test/artifacts/output/*.gif
+test/artifacts/output/*.png
+test/artifacts/output/*.mp4
+test/artifacts/output/*.mkv
+test/artifacts/output/*.spec.json
+test/artifacts/output/*.report.json
+test/artifacts/output/safari-screenshot-*.png
+test/artifacts/output/screenshot-*.png
+test/artifacts/output/firefox-screenshot-*.png
+test/artifacts/output/chrome-screenshot-*.png
+.appium/
+Browserstack/
+
+# Debug demo files
+debug-*.js
+debug-*.spec.json
+normal-*.js
