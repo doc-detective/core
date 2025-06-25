@@ -248,9 +248,30 @@ async function setConfig({ config }) {
     return fileType;
   });
 
-  // Detect current environment.
+  // Detect current environment first
   config.environment = getEnvironment();
-  config.environment.apps = await getAvailableApps(config);
+  
+  // Parse debug options from string or boolean format
+  if (!config.debug) {
+    config.debug = false;
+  }
+  
+  // Convert debug string/boolean to parsed debug object for internal use
+  config._debugParsed = {
+    stepThrough: false,
+    breakOnFail: false,
+    breakpoints: []
+  };
+
+  if (config.debug === true || config.debug === "stepThrough") {
+    config._debugParsed.stepThrough = true;
+  }
+  // Note: For now, only stepThrough is supported by the schema
+  // Additional debug options like breakOnFail and breakpoints can be added
+  // when the schema is updated to support them
+
+  // Get available apps
+  config.environment.apps = await getAvailableApps({ config });
   // TODO: Revise loadDescriptions() so it doesn't mutate the input but instead returns an updated object
   await loadDescriptions(config);
 

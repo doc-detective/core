@@ -15,6 +15,7 @@ exports.cleanTemp = cleanTemp;
 exports.calculatePercentageDifference = calculatePercentageDifference;
 exports.fetchFile = fetchFile;
 exports.isRelativeUrl = isRelativeUrl;
+exports.debugStepPrompt = debugStepPrompt;
 
 function isRelativeUrl(url) {
   try {
@@ -296,4 +297,79 @@ function llevenshteinDistance(s, t) {
   }
 
   return arr[t.length][s.length];
+}
+
+/**
+ * Prompts the user for debug input during step-through mode
+ * @param {Object} config - The configuration object
+ * @param {Object} step - The current step being executed
+ * @param {Object} context - The current context
+ * @param {string} reason - Reason for the pause (e.g., 'stepThrough', 'breakpoint', 'failure')
+ * @returns {Promise<string>} User's choice ('continue', 'quit')
+ */
+async function debugStepPrompt(config, step, context, reason) {
+  // Only prompt if we're in an interactive environment
+  if (!process.stdin.isTTY) {
+    // Non-interactive environment, continue automatically
+    return 'continue';
+  }
+
+  const readline = require('readline');
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+
+  // Create the prompt message
+  let message = '\n--- DEBUG STEP-THROUGH MODE ---\n';
+  
+  switch (reason) {
+    case 'stepThrough':
+      message += '⏸️  Step-through mode: Paused before next step\n';
+      break;
+    case 'breakpoint':
+      message += '🔴 Breakpoint: Paused at specified step\n';
+      break;
+    case 'failure':
+      message += '❌ Auto-break: Paused due to step failure\n';
+      break;
+    default:
+      message += '⏸️  Debug: Paused\n';
+  }
+  
+  message += `Context: ${context.contextId || 'Unknown'}\n`;
+  message += `Step ID: ${step.stepId || 'Unknown'}\n`;
+  message += `Step Description: ${step.description || 'No description'}\n`;
+  
+  // Show step details
+  const stepKeys = Object.keys(step).filter(key => 
+    !['stepId', 'description', 'variables'].includes(key)
+  );
+  if (stepKeys.length > 0) {
+    message += `Step Action: ${stepKeys[0]}\n`;
+  }
+  
+  message += '\nOptions:\n';
+  message += '  [c] Continue to next step\n';
+  message += '  [q] Quit execution\n';
+  message += 'Choice: ';
+
+  return new Promise((resolve) => {
+    const askQuestion = () => {
+      rl.question(message, (answer) => {
+        const choice = answer.toLowerCase().trim();
+        if (choice === 'c' || choice === 'continue') {
+          rl.close();
+          resolve('continue');
+        } else if (choice === 'q' || choice === 'quit') {
+          rl.close();
+          resolve('quit');
+        } else {
+          console.log('Invalid choice. Please enter "c" for continue or "q" for quit.\n');
+          askQuestion();
+        }
+      });
+    };
+    askQuestion();
+  });
 }
