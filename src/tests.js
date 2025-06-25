@@ -734,7 +734,16 @@ async function runSpecs({ resolvedTests }) {
   }
 
   // Execute all contexts in parallel using TestRunner
-  const concurrentRunners = config.concurrentRunners || resolvedTests.config.concurrentRunners || 1;
+  let concurrentRunners = config.concurrentRunners || resolvedTests.config.concurrentRunners || 1;
+  
+  // Force sequential execution when debug step-through mode is enabled
+  if (config._debugParsed && config._debugParsed.stepThrough) {
+    if (concurrentRunners > 1) {
+      log(config, "info", `Debug step-through mode enabled: forcing concurrent runners from ${concurrentRunners} to 1 for sequential execution`);
+    }
+    concurrentRunners = 1;
+  }
+  
   log(config, "info", `Using ${concurrentRunners} concurrent runners for ${allContexts.length} total contexts across all specs and tests`);
   const testRunner = new TestRunner(concurrentRunners);
   
