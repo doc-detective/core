@@ -265,6 +265,7 @@ async function setConfig({ config }) {
 
   if (config.debug === true || config.debug === "stepThrough") {
     config._debugParsed.stepThrough = true;
+    config._debugParsed.breakOnFail = true; // Auto-enable break on failure for debug mode
   }
   // Note: For now, only stepThrough is supported by the schema
   // Additional debug options like breakOnFail and breakpoints can be added

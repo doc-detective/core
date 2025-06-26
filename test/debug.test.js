@@ -34,7 +34,7 @@ describe("Debug Step-Through Mode", function () {
     
     assert.equal(processedConfig.debug, "stepThrough", "Debug should preserve stepThrough string");
     assert.equal(processedConfig._debugParsed.stepThrough, true, "stepThrough should be enabled");
-    assert.equal(processedConfig._debugParsed.breakOnFail, false, "breakOnFail should remain false");
+    assert.equal(processedConfig._debugParsed.breakOnFail, true, "breakOnFail should be enabled with debug");
     assert.equal(processedConfig._debugParsed.breakpoints.length, 0, "breakpoints should remain empty");
   });
 
@@ -50,7 +50,7 @@ describe("Debug Step-Through Mode", function () {
     
     assert.equal(processedConfig.debug, true, "Debug should preserve boolean value");
     assert.equal(processedConfig._debugParsed.stepThrough, true, "stepThrough should be enabled for true");
-    assert.equal(processedConfig._debugParsed.breakOnFail, false, "breakOnFail should remain false");
+    assert.equal(processedConfig._debugParsed.breakOnFail, true, "breakOnFail should be enabled with debug");
     assert.equal(processedConfig._debugParsed.breakpoints.length, 0, "breakpoints should remain empty");
   });
 
@@ -249,6 +249,86 @@ describe("Debug Step-Through Mode", function () {
     } finally {
       // Restore original log function
       require("../src/utils").log = originalLog;
+    }
+  });
+
+  it("should auto-break on step failure when debug mode is enabled", async () => {
+    const originalIsTTY = process.stdin.isTTY;
+    process.stdin.isTTY = false; // Simulate non-TTY to auto-continue debug prompts
+
+    try {
+      const config = {
+        logLevel: "error",
+        debug: true,
+        _debugParsed: {
+          stepThrough: true,
+          breakOnFail: true,
+          breakpoints: []
+        }
+      };
+
+      const context = {
+        contextId: "test-context",
+        steps: [
+          {
+            stepId: "step-1",
+            description: "Test step that will pass",
+            runShell: "echo 'success'"
+          },
+          {
+            stepId: "step-2", 
+            description: "Test step that will fail",
+            runShell: "exit 1"
+          },
+          {
+            stepId: "step-3",
+            description: "Test step that should be skipped",
+            runShell: "echo 'should not run'"
+          }
+        ]
+      };
+
+      const spec = { specId: "test-spec" };
+      const test = { testId: "test-test" };
+      const runnerDetails = {
+        environment: { platform: "linux" },
+        availableApps: [],
+        allowUnsafeSteps: true
+      };
+      const metaValues = {
+        specs: {
+          "test-spec": {
+            tests: {
+              "test-test": {
+                contexts: {
+                  "test-context": { steps: {} }
+                }
+              }
+            }
+          }
+        }
+      };
+
+      const result = await executeTestContext({
+        context,
+        config,
+        spec,
+        test,
+        runnerDetails,
+        availableApps: [],
+        platform: "linux",
+        metaValues,
+      });
+
+      assert(result.contextReport, "Should return a context report");
+      assert.equal(result.contextReport.result, "FAIL", "Context should fail due to failed step");
+      assert.equal(result.contextReport.steps.length, 3, "Should attempt all steps");
+      assert.equal(result.contextReport.steps[0].result, "PASS", "First step should pass");
+      assert.equal(result.contextReport.steps[1].result, "FAIL", "Second step should fail");
+      assert.equal(result.contextReport.steps[2].result, "SKIPPED", "Third step should be skipped after failure");
+      
+    } finally {
+      process.stdin.isTTY = originalIsTTY;
     }
   });
 });
