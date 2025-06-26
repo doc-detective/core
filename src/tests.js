@@ -429,7 +429,7 @@ async function executeTestContext({
 
         if (shouldPause) {
           log(config, "info", `Debug: Pausing before step execution (${pauseReason})`);
-          const userChoice = await debugStepPrompt(config, step, context, pauseReason);
+          const userChoice = await debugStepPrompt(config, step, context, pauseReason, metaValues);
           
           if (userChoice === 'quit') {
             log(config, "info", "Debug: User chose to quit execution");
@@ -486,7 +486,7 @@ async function executeTestContext({
         // Debug: Check if we should pause due to failure
         if (config._debugParsed && config._debugParsed.breakOnFail) {
           log(config, "info", "Debug: Step failed, pausing for break-on-fail");
-          const userChoice = await debugStepPrompt(config, step, context, 'failure');
+          const userChoice = await debugStepPrompt(config, step, context, 'failure', metaValues);
           
           if (userChoice === 'quit') {
             log(config, "info", "Debug: User chose to quit execution after failure");

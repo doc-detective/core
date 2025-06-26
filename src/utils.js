@@ -305,9 +305,10 @@ function llevenshteinDistance(s, t) {
  * @param {Object} step - The current step being executed
  * @param {Object} context - The current context
  * @param {string} reason - Reason for the pause (e.g., 'stepThrough', 'breakpoint', 'failure')
+ * @param {Object} metaValues - The metaValues object containing execution state
  * @returns {Promise<string>} User's choice ('continue', 'quit')
  */
-async function debugStepPrompt(config, step, context, reason) {
+async function debugStepPrompt(config, step, context, reason, metaValues = {}) {
   // Only prompt if we're in an interactive environment
   if (!process.stdin.isTTY) {
     // Non-interactive environment, continue automatically
@@ -348,15 +349,26 @@ async function debugStepPrompt(config, step, context, reason) {
   if (stepKeys.length > 0) {
     message += `Step Action: ${stepKeys[0]}\n`;
   }
+
+  // Show step variables preview if variables are defined
+  if (step.variables && Object.keys(step.variables).length > 0) {
+    message += `\nStep Variables to be set:\n`;
+    Object.entries(step.variables).forEach(([key, expression]) => {
+      message += `  ${key}: ${expression}\n`;
+    });
+  }
   
   message += '\nOptions:\n';
   message += '  [c] Continue to next step\n';
   message += '  [q] Quit execution\n';
+  message += '  [v] View available variables\n';
+  message += '  [e] Evaluate expression\n';
+  message += '  [s] Set environment variable\n';
   message += 'Choice: ';
 
   return new Promise((resolve) => {
     const askQuestion = () => {
-      rl.question(message, (answer) => {
+      rl.question(message, async (answer) => {
         const choice = answer.toLowerCase().trim();
         if (choice === 'c' || choice === 'continue') {
           rl.close();
@@ -364,12 +376,161 @@ async function debugStepPrompt(config, step, context, reason) {
         } else if (choice === 'q' || choice === 'quit') {
           rl.close();
           resolve('quit');
+        } else if (choice === 'v' || choice === 'view') {
+          await debugViewVariables(metaValues);
+          console.log('\n');
+          askQuestion();
+        } else if (choice === 'e' || choice === 'evaluate') {
+          await debugEvaluateExpression(rl, metaValues);
+          console.log('\n');
+          askQuestion();
+        } else if (choice === 's' || choice === 'set') {
+          await debugSetVariable(rl);
+          console.log('\n');
+          askQuestion();
         } else {
-          console.log('Invalid choice. Please enter "c" for continue or "q" for quit.\n');
+          console.log('Invalid choice. Please enter "c", "q", "v", "e", or "s".\n');
           askQuestion();
         }
       });
     };
     askQuestion();
+  });
+}
+
+/**
+ * Displays available variables and their values for debugging
+ * @param {Object} metaValues - The metaValues object containing execution state
+ */
+async function debugViewVariables(metaValues) {
+  console.log('\n=== AVAILABLE VARIABLES ===');
+  
+  // Show environment variables
+  console.log('\n--- Environment Variables ---');
+  const envVars = Object.keys(process.env).sort();
+  if (envVars.length > 0) {
+    // Show first 20 environment variables to avoid overwhelming output
+    const displayVars = envVars.slice(0, 20);
+    displayVars.forEach(key => {
+      const value = process.env[key];
+      const displayValue = value && value.length > 50 ? `${value.substring(0, 50)}...` : value;
+      console.log(`  ${key}: ${displayValue}`);
+    });
+    if (envVars.length > 20) {
+      console.log(`  ... and ${envVars.length - 20} more environment variables`);
+    }
+  } else {
+    console.log('  No environment variables found');
+  }
+
+  // Show metaValues structure
+  console.log('\n--- Meta Values (Test Execution Context) ---');
+  if (metaValues && Object.keys(metaValues).length > 0) {
+    console.log(JSON.stringify(metaValues, null, 2));
+  } else {
+    console.log('  No meta values available');
+  }
+
+  // Show step outputs from most recent steps
+  console.log('\n--- Recent Step Outputs ---');
+  if (metaValues && metaValues.specs) {
+    let foundOutputs = false;
+    Object.values(metaValues.specs).forEach(spec => {
+      if (spec.tests) {
+        Object.values(spec.tests).forEach(test => {
+          if (test.contexts) {
+            Object.values(test.contexts).forEach(context => {
+              if (context.steps) {
+                Object.entries(context.steps).forEach(([stepId, stepData]) => {
+                  if (stepData.outputs && Object.keys(stepData.outputs).length > 0) {
+                    console.log(`  Step ${stepId}:`);
+                    Object.entries(stepData.outputs).forEach(([key, value]) => {
+                      console.log(`    ${key}: ${JSON.stringify(value)}`);
+                    });
+                    foundOutputs = true;
+                  }
+                });
+              }
+            });
+          }
+        });
+      }
+    });
+    if (!foundOutputs) {
+      console.log('  No step outputs available yet');
+    }
+  } else {
+    console.log('  No step outputs available yet');
+  }
+
+  console.log('\nTip: Use expressions like $$specs.specId.tests.testId.contexts.contextId.steps.stepId.outputs.key');
+  console.log('     Or environment variables like $VARIABLE_NAME');
+}
+
+/**
+ * Allows interactive expression evaluation during debugging
+ * @param {Object} rl - Readline interface
+ * @param {Object} metaValues - The metaValues object containing execution state
+ */
+async function debugEvaluateExpression(rl, metaValues) {
+  const { resolveExpression } = require('./expressions');
+  
+  return new Promise((resolve) => {
+    rl.question('\nEnter expression to evaluate (or press Enter to cancel): ', async (expression) => {
+      if (!expression.trim()) {
+        console.log('Expression evaluation cancelled');
+        resolve();
+        return;
+      }
+
+      try {
+        console.log(`\nEvaluating: ${expression}`);
+        
+        // Create evaluation context that includes both metaValues and any action outputs
+        const evaluationContext = { ...metaValues };
+        
+        const result = await resolveExpression({
+          expression: expression.trim(),
+          context: evaluationContext
+        });
+        
+        console.log('Result:');
+        if (typeof result === 'object') {
+          console.log(JSON.stringify(result, null, 2));
+        } else {
+          console.log(result);
+        }
+      } catch (error) {
+        console.log(`Error evaluating expression: ${error.message}`);
+      }
+      
+      resolve();
+    });
+  });
+}
+
+/**
+ * Allows setting environment variables during debugging
+ * @param {Object} rl - Readline interface
+ */
+async function debugSetVariable(rl) {
+  return new Promise((resolve) => {
+    rl.question('\nEnter variable name (or press Enter to cancel): ', (varName) => {
+      if (!varName.trim()) {
+        console.log('Variable setting cancelled');
+        resolve();
+        return;
+      }
+
+      rl.question(`Enter value for ${varName.trim()}: `, (varValue) => {
+        try {
+          process.env[varName.trim()] = varValue;
+          console.log(`Set ${varName.trim()} = "${varValue}"`);
+        } catch (error) {
+          console.log(`Error setting variable: ${error.message}`);
+        }
+        resolve();
+      });
+    });
   });
 }
