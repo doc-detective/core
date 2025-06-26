@@ -1,0 +1,23 @@
+{
+  "tests": [
+    {
+      "steps": [
+        {
+          "stepId": "step-1",
+          "description": "First test step",
+          "runShell": "echo 'Step 1: Hello from debug mode'"
+        },
+        {
+          "stepId": "step-2", 
+          "description": "Second test step",
+          "runShell": "echo 'Step 2: This is the second step'"
+        },
+        {
+          "stepId": "step-3",
+          "description": "Third test step", 
+          "runShell": "echo 'Step 3: Final step'"
+        }
+      ]
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 const kill = require("tree-kill");
 const wdio = require("webdriverio");
 const os = require("os");
-const { log, replaceEnvs } = require("./utils");
+const { log, replaceEnvs, debugStepPrompt } = require("./utils");
 const axios = require("axios");
 const { instantiateCursor } = require("./tests/moveTo");
 const { goTo } = require("./tests/goTo");
@@ -404,6 +404,51 @@ async function executeTestContext({
         context.contextId
       ].steps[step.stepId] = {};
 
+      // Debug step-through logic
+      if (config._debugParsed) {
+        let shouldPause = false;
+        let pauseReason = '';
+
+        // Check if we should pause for step-through mode
+        if (config._debugParsed.stepThrough) {
+          shouldPause = true;
+          pauseReason = 'stepThrough';
+        }
+
+        // Check if this step is a breakpoint
+        if (config._debugParsed.breakpoints && config._debugParsed.breakpoints.includes(step.stepId)) {
+          shouldPause = true;
+          pauseReason = 'breakpoint';
+        }
+
+        // Check if we should pause due to previous failure
+        if (config._debugParsed.breakOnFail && stepExecutionFailed) {
+          shouldPause = true;
+          pauseReason = 'failure';
+        }
+
+        if (shouldPause) {
+          log(config, "info", `Debug: Pausing before step execution (${pauseReason})`);
+          const userChoice = await debugStepPrompt(config, step, context, pauseReason, metaValues);
+          
+          if (userChoice === 'quit') {
+            log(config, "info", "Debug: User chose to quit execution");
+            // Mark remaining steps as skipped and break out of loop
+            stepExecutionFailed = true;
+            const stepReport = {
+              ...step,
+              result: "SKIPPED",
+              resultDescription: "Skipped due to user quit during debug mode."
+            };
+            contextReport.steps.push(stepReport);
+            stepSummary.skipped++;
+            continue;
+          }
+          
+          log(config, "info", "Debug: Continuing with step execution");
+        }
+      }
+
       // Run step
       const stepResult = await runStep({
         config: config,
@@ -437,6 +482,20 @@ async function executeTestContext({
       // If this step failed, set flag to skip remaining steps
       if (stepReport.result === "FAIL") {
         stepExecutionFailed = true;
+        
+        // Debug: Check if we should pause due to failure
+        if (config._debugParsed && config._debugParsed.breakOnFail) {
+          log(config, "info", "Debug: Step failed, pausing for break-on-fail");
+          const userChoice = await debugStepPrompt(config, step, context, 'failure', metaValues);
+          
+          if (userChoice === 'quit') {
+            log(config, "info", "Debug: User chose to quit execution after failure");
+            // No need to do anything special here, stepExecutionFailed is already true
+            // and will cause remaining steps to be skipped
+          } else {
+            log(config, "info", "Debug: Continuing after failure");
+          }
+        }
       }
     }
 
@@ -675,7 +734,16 @@ async function runSpecs({ resolvedTests }) {
   }
 
   // Execute all contexts in parallel using TestRunner
-  const concurrentRunners = config.concurrentRunners || resolvedTests.config.concurrentRunners || 1;
+  let concurrentRunners = config.concurrentRunners || resolvedTests.config.concurrentRunners || 1;
+  
+  // Force sequential execution when debug step-through mode is enabled
+  if (config._debugParsed && config._debugParsed.stepThrough) {
+    if (concurrentRunners > 1) {
+      log(config, "info", `Debug step-through mode enabled: forcing concurrent runners from ${concurrentRunners} to 1 for sequential execution`);
+    }
+    concurrentRunners = 1;
+  }
+  
   log(config, "info", `Using ${concurrentRunners} concurrent runners for ${allContexts.length} total contexts across all specs and tests`);
   const testRunner = new TestRunner(concurrentRunners);
   
