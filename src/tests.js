@@ -25,7 +25,6 @@ const { resolveExpression } = require("./expressions");
 const { getEnvironment, getAvailableApps } = require("./config");
 
 exports.runSpecs = runSpecs;
-exports.executeTestContext = executeTestContext;
 // exports.appiumStart = appiumStart;
 // exports.appiumIsReady = appiumIsReady;
 // exports.driverStart = driverStart;
@@ -222,348 +221,6 @@ async function allowUnsafeSteps({ config }) {
   else return false;
 }
 
-// Execute a single test context with proper isolation
-async function executeTestContext({
-  context,
-  config,
-  spec,
-  test,
-  runnerDetails,
-  availableApps,
-  platform,
-  metaValues,
-}) {
-  // If "platform" is not defined, set it to the current platform
-  if (!context.platform)
-    context.platform = runnerDetails.environment.platform;
-
-  // If "browser" isn't defined but is required by the test, set it to the first available browser in the sequence of Firefox, Chrome, Safari
-  if (!context.browser && isDriverRequired({ test: context })) {
-    context.browser = getDefaultBrowser({ runnerDetails });
-  }
-
-  log(config, "debug", `CONTEXT:\n${JSON.stringify(context, null, 2)}`);
-
-  // Set context report
-  let contextReport = {
-    platform: context.platform,
-    browser: context.browser,
-    steps: [],
-  };
-
-  // Set meta values
-  metaValues.specs[spec.specId].tests[test.testId].contexts[
-    context.contextId
-  ] = { steps: {} };
-
-  // Check if current environment supports given contexts
-  const supportedContext = isSupportedContext({
-    context: context,
-    apps: availableApps,
-    platform: platform,
-  });
-
-  // If context isn't supported, skip it
-  if (!supportedContext) {
-    log(
-      config,
-      "warning",
-      `Skipping context. The current system doesn't support this context (${JSON.stringify(
-        context
-      )}).`
-    );
-    return {
-      contextReport: { result: "SKIPPED", ...contextReport },
-      summary: { contexts: { skipped: 1 }, steps: { pass: 0, fail: 0, warning: 0, skipped: 0 } }
-    };
-  }
-
-  let driver;
-  // Ensure context contains a 'steps' property
-  if (!context.steps) {
-    context.steps = [];
-  }
-  const driverRequired = isDriverRequired({ test: context });
-  
-  try {
-    if (driverRequired) {
-      // Define driver capabilities
-      // TODO: Support custom apps
-      let caps = getDriverCapabilities({
-        runnerDetails: runnerDetails,
-        name: context.browser.name,
-        options: {
-          width: context.browser?.window?.width || 1200,
-          height: context.browser?.window?.height || 800,
-          headless: context.browser?.headless !== false,
-        },
-      });
-      log(config, "debug", "CAPABILITIES:");
-      log(config, "debug", caps);
-
-      // Instantiate driver
-      try {
-        driver = await driverStart(caps);
-      } catch (error) {
-        try {
-          // If driver fails to start, try again as headless
-          log(
-            config,
-            "warning",
-            `Failed to start context '${context.browser?.name}' on '${platform}'. Retrying as headless.`
-          );
-          context.browser.headless = true;
-          caps = getDriverCapabilities({
-            runnerDetails: runnerDetails,
-            name: context.browser.name,
-            options: {
-              width: context.browser?.window?.width || 1200,
-              height: context.browser?.window?.height || 800,
-              headless: context.browser?.headless !== false,
-            },
-          });
-          driver = await driverStart(caps);
-        } catch (error) {
-          let errorMessage = `Failed to start context '${context.browser?.name}' on '${platform}'.`;
-          if (context.browser?.name === "safari")
-            errorMessage =
-              errorMessage +
-              " Make sure you've run `safaridriver --enable` in a terminal and enabled 'Allow Remote Automation' in Safari's Develop menu.";
-          log(config, "error", errorMessage);
-          return {
-            contextReport: {
-              result: "SKIPPED",
-              description: errorMessage,
-              ...contextReport,
-            },
-            summary: { contexts: { skipped: 1 }, steps: { pass: 0, fail: 0, warning: 0, skipped: 0 } }
-          };
-        }
-      }
-
-      if (
-        context.browser?.viewport?.width ||
-        context.browser?.viewport?.height
-      ) {
-        // Set driver viewport size
-        await setViewportSize(context, driver);
-      } else if (
-        context.browser?.window?.width ||
-        context.browser?.window?.height
-      ) {
-        // Get driver window size
-        const windowSize = await driver.getWindowSize();
-        // Resize window if necessary
-        await driver.setWindowSize(
-          context.browser?.window?.width || windowSize.width,
-          context.browser?.window?.height || windowSize.height
-        );
-      }
-    }
-
-    // Execute steps
-    const stepSummary = { pass: 0, fail: 0, warning: 0, skipped: 0 };
-    let stepExecutionFailed = false;
-    
-    for (let step of context.steps) {
-      // Set step id if not defined
-      if (!step.stepId) step.stepId = `${uuid.v4()}`;
-      log(config, "debug", `STEP:\n${JSON.stringify(step, null, 2)}`);
-
-      if (step.unsafe && runnerDetails.allowUnsafeSteps === false) {
-        log(
-          config,
-          "warning",
-          `Skipping unsafe step: ${step.description} in test ${test.testId} context ${context.contextId}`
-        );
-        // Mark as skipped
-        const stepReport = {
-          ...step,
-          result: "SKIPPED",
-          resultDescription: "Skipped because unsafe steps aren't allowed."
-        };
-        contextReport.steps.push(stepReport);
-        stepSummary.skipped++;
-        continue;
-      }
-
-      if (stepExecutionFailed) {
-        // Mark as skipped
-        const stepReport = {
-          ...step,
-          result: "SKIPPED",
-          resultDescription: "Skipped due to previous failure in context."
-        };
-        contextReport.steps.push(stepReport);
-        stepSummary.skipped++;
-        continue;
-      }
-
-      // Set meta values
-      metaValues.specs[spec.specId].tests[test.testId].contexts[
-        context.contextId
-      ].steps[step.stepId] = {};
-
-      // Run step
-      const stepResult = await runStep({
-        config: config,
-        context: context,
-        step: step,
-        driver: driver,
-        metaValues: metaValues,
-        options: {
-          openApiDefinitions: context.openApi || [],
-        },
-      });
-      log(
-        config,
-        "debug",
-        `RESULT: ${stepResult.status}, ${stepResult.description}`
-      );
-
-      stepResult.result = stepResult.status;
-      stepResult.resultDescription = stepResult.description;
-      delete stepResult.status;
-      delete stepResult.description;
-
-      // Add step result to report
-      const stepReport = {
-        ...stepResult,
-        ...step,
-      };
-      contextReport.steps.push(stepReport);
-      stepSummary[stepReport.result.toLowerCase()]++;
-
-      // If this step failed, set flag to skip remaining steps
-      if (stepReport.result === "FAIL") {
-        stepExecutionFailed = true;
-      }
-    }
-
-    // If recording, stop recording
-    if (config.recording) {
-      const stopRecordStep = {
-        stopRecord: true,
-        description: "Stopping recording",
-        stepId: `${uuid.v4()}`,
-      };
-      const stepResult = await runStep({
-        config: config,
-        context: context,
-        step: stopRecordStep,
-        driver: driver,
-        options: {
-          openApiDefinitions: context.openApi || [],
-        },
-      });
-      stepResult.result = stepResult.status;
-      stepResult.resultDescription = stepResult.description;
-      delete stepResult.status;
-      delete stepResult.description;
-
-      // Add step result to report
-      const stepReport = {
-        ...stepResult,
-        ...stopRecordStep,
-      };
-      contextReport.steps.push(stepReport);
-      stepSummary[stepReport.result.toLowerCase()]++;
-    }
-
-    // Parse step results to calc context result
-    let contextResult;
-    // If any step fails, context fails
-    if (contextReport.steps.find((step) => step.result === "FAIL"))
-      contextResult = "FAIL";
-    // If any step warns, context warns
-    else if (contextReport.steps.find((step) => step.result === "WARNING"))
-      contextResult = "WARNING";
-    // If all steps skipped, context skipped
-    else if (
-      contextReport.steps.length ===
-      contextReport.steps.filter((step) => step.result === "SKIPPED").length
-    )
-      contextResult = "SKIPPED";
-    // If all steps pass, context passes
-    else contextResult = "PASS";
-
-    contextReport = { result: contextResult, ...contextReport };
-
-    return {
-      contextReport,
-      summary: { contexts: { [contextResult.toLowerCase()]: 1 }, steps: stepSummary }
-    };
-
-  } finally {
-    // Always cleanup driver
-    if (driverRequired && driver) {
-      try {
-        await driver.deleteSession();
-      } catch (error) {
-        log(
-          config,
-          "error",
-          `Failed to delete driver session: ${error.message}`
-        );
-      }
-    }
-  }
-}
-
-// TestRunner class with worker pool pattern
-class TestRunner {
-  constructor(concurrentRunners = 1) {
-    this.maxWorkers = Math.max(1, concurrentRunners);
-    this.contextQueue = [];
-    this.results = [];
-  }
-
-  async runTests(resolvedContexts, executionParams) {
-    this.contextQueue = [...resolvedContexts];
-    this.results = new Array(resolvedContexts.length); // Pre-allocate to maintain order
-    this.currentIndex = 0;
-    
-    // Create worker promises
-    const workers = Array.from({ length: this.maxWorkers }, () => 
-      this.createWorker(executionParams)
-    );
-    
-    await Promise.allSettled(workers);
-    return this.results;
-  }
-
-  async createWorker(executionParams) {
-    while (this.currentIndex < this.contextQueue.length) {
-      const index = this.currentIndex++;
-      const contextData = this.contextQueue[index];
-      if (!contextData) break;
-      
-      try {
-        const result = await executeTestContext({
-          ...contextData,
-          ...executionParams,
-        });
-        this.results[index] = result;
-      } catch (error) {
-        const errorResult = {
-          contextReport: { 
-            result: "FAIL", 
-            platform: contextData.context.platform,
-            browser: contextData.context.browser,
-            steps: [],
-            error: error.message 
-          },
-          summary: { contexts: { fail: 1 }, steps: { pass: 0, fail: 0, warning: 0, skipped: 0 } }
-        };
-        this.results[index] = errorResult;
-      }
-    }
-  }
-}
-
-// Export the TestRunner class
-exports.TestRunner = TestRunner;
-
 // Iterate through and execute test specifications and contained tests.
 async function runSpecs({ resolvedTests }) {
   const config = resolvedTests.config;
@@ -634,112 +291,350 @@ async function runSpecs({ resolvedTests }) {
     log(config, "debug", "Appium is ready.");
   }
 
-  // Collect all contexts from all specs and tests for parallel execution
+  // Iterate specs
   log(config, "info", "Running test specs.");
-  const allContexts = [];
-  const contextToLocation = new Map(); // Map context execution to its spec/test location
-  
-  // Initialize spec and test reports structure
   for (const spec of specs) {
-    const specReport = {
+    log(config, "debug", `SPEC: ${spec.specId}`);
+
+    // Set spec report
+    let specReport = {
       specId: spec.specId,
       description: spec.description,
       contentPath: spec.contentPath,
       tests: [],
     };
-    report.specs.push(specReport);
+    // Set meta values
     metaValues.specs[spec.specId] = { tests: {} };
 
+    // Iterates tests
     for (const test of spec.tests) {
-      const testReport = {
+      log(config, "debug", `TEST: ${test.testId}`);
+
+      // Set test report
+      let testReport = {
         testId: test.testId,
         description: test.description,
         contentPath: test.contentPath,
         detectSteps: test.detectSteps,
         contexts: [],
       };
-      specReport.tests.push(testReport);
+      // Set meta values
       metaValues.specs[spec.specId].tests[test.testId] = { contexts: [] };
 
-      // Add each context to the global execution queue
+      // Iterate contexts
+      // TODO: Support both serial and parallel execution
       for (const context of test.contexts) {
-        const contextData = {
-          context,
-          spec,
-          test,
+        // If "platform" is not defined, set it to the current platform
+        if (!context.platform)
+          context.platform = runnerDetails.environment.platform;
+
+        // If "browser" isn't defined but is required by the test, set it to the first available browser in the sequence of Firefox, Chrome, Safari
+        if (!context.browser && isDriverRequired({ test: context })) {
+          context.browser = getDefaultBrowser({ runnerDetails });
+        }
+
+        log(config, "debug", `CONTEXT:\n${JSON.stringify(context, null, 2)}`);
+
+        // Set context report
+        let contextReport = {
+          platform: context.platform,
+          browser: context.browser,
+          steps: [],
         };
-        allContexts.push(contextData);
-        contextToLocation.set(contextData, { specReport, testReport });
+        // Set meta values
+        metaValues.specs[spec.specId].tests[test.testId].contexts[
+          context.contextId
+        ] = { steps: {} };
+
+        // Check if current environment supports given contexts
+        const supportedContext = isSupportedContext({
+          context: context,
+          apps: availableApps,
+          platform: platform,
+        });
+
+        // If context isn't supported, skip it
+        if (!supportedContext) {
+          log(
+            config,
+            "warning",
+            `Skipping context. The current system doesn't support this context (${JSON.stringify(
+              context
+            )}).`
+          );
+          contextReport = { result: { status: "SKIPPED" }, ...contextReport };
+          report.summary.contexts.skipped++;
+          testReport.contexts.push(contextReport);
+          continue;
+        }
+
+        let driver;
+        // Ensure context contains a 'steps' property
+        if (!context.steps) {
+          context.steps = [];
+        }
+        const driverRequired = isDriverRequired({ test: context });
+        if (driverRequired) {
+          // Define driver capabilities
+          // TODO: Support custom apps
+          let caps = getDriverCapabilities({
+            runnerDetails: runnerDetails,
+            name: context.browser.name,
+            options: {
+              width: context.browser?.window?.width || 1200,
+              height: context.browser?.window?.height || 800,
+              headless: context.browser?.headless !== false,
+            },
+          });
+          log(config, "debug", "CAPABILITIES:");
+          log(config, "debug", caps);
+
+          // Instantiate driver
+          try {
+            driver = await driverStart(caps);
+          } catch (error) {
+            try {
+              // If driver fails to start, try again as headless
+              log(
+                config,
+                "warning",
+                `Failed to start context '${context.browser?.name}' on '${platform}'. Retrying as headless.`
+              );
+              context.browser.headless = true;
+              caps = getDriverCapabilities({
+                config: config,
+                name: context.browser.name,
+                options: {
+                  width: context.browser?.window?.width || 1200,
+                  height: context.browser?.window?.height || 800,
+                  headless: context.browser?.headless !== false,
+                },
+              });
+              driver = await driverStart(caps);
+            } catch (error) {
+              let errorMessage = `Failed to start context '${context.browser?.name}' on '${platform}'.`;
+              if (context.browser?.name === "safari")
+                errorMessage =
+                  errorMessage +
+                  " Make sure you've run `safaridriver --enable` in a terminal and enabled 'Allow Remote Automation' in Safari's Develop menu.";
+              log(config, "error", errorMessage);
+              contextReport = {
+                result: { status: "SKIPPED", description: errorMessage },
+                ...contextReport,
+              };
+              report.summary.contexts.skipped++;
+              testReport.contexts.push(contextReport);
+              continue;
+            }
+          }
+
+          if (
+            context.browser?.viewport?.width ||
+            context.browser?.viewport?.height
+          ) {
+            // Set driver viewport size
+            await setViewportSize(context, driver);
+          } else if (
+            context.browser?.window?.width ||
+            context.browser?.window?.height
+          ) {
+            // Get driver window size
+            const windowSize = await driver.getWindowSize();
+            // Resize window if necessary
+            await driver.setWindowSize(
+              context.browser?.window?.width || windowSize.width,
+              context.browser?.window?.height || windowSize.height
+            );
+          }
+        }
+
+        // Iterates steps
+        let stepExecutionFailed = false;
+        for (let step of context.steps) {
+          // Set step id if not defined
+          if (!step.stepId) step.stepId = `${uuid.v4()}`;
+          log(config, "debug", `STEP:\n${JSON.stringify(step, null, 2)}`);
+
+
+          if (step.unsafe && runnerDetails.allowUnsafeSteps === false) {
+            log(
+              config,
+              "warning",
+              `Skipping unsafe step: ${step.description} in test ${test.testId} context ${context.contextId}`
+            );
+            // Mark as skipped
+            const stepReport = {
+              ...step,
+              result: "SKIPPED",
+              resultDescription: "Skipped because unsafe steps aren't allowed."
+            };
+            contextReport.steps.push(stepReport);
+            report.summary.steps.skipped++;
+            continue;
+          }
+
+          if (stepExecutionFailed) {
+            // Mark as skipped
+            const stepReport = {
+              ...step,
+              result: "SKIPPED",
+              resultDescription: "Skipped due to previous failure in context."
+            };
+            contextReport.steps.push(stepReport);
+            report.summary.steps.skipped++;
+            continue;
+          }
+
+          // Set meta values
+          metaValues.specs[spec.specId].tests[test.testId].contexts[
+            context.contextId
+          ].steps[step.stepId] = {};
+
+          // Run step
+          const stepResult = await runStep({
+            config: config,
+            context: context,
+            step: step,
+            driver: driver,
+            metaValues: metaValues,
+            options: {
+              openApiDefinitions: context.openApi || [],
+            },
+          });
+          log(
+            config,
+            "debug",
+            `RESULT: ${stepResult.status}, ${stepResult.description}`
+          );
+
+          stepResult.result = stepResult.status;
+          stepResult.resultDescription = stepResult.description;
+          delete stepResult.status;
+          delete stepResult.description;
+
+          // Add step result to report
+          const stepReport = {
+            ...stepResult,
+            ...step,
+          };
+          contextReport.steps.push(stepReport);
+          report.summary.steps[stepReport.result.toLowerCase()]++;
+
+          // If this step failed, set flag to skip remaining steps
+          if (stepReport.result === "FAIL") {
+            stepExecutionFailed = true;
+          }
+        }
+
+        // If recording, stop recording
+        if (config.recording) {
+          const stopRecordStep = {
+            stopRecord: true,
+            description: "Stopping recording",
+            stepId: `${uuid.v4()}`,
+          };
+          const stepResult = await runStep({
+            config: config,
+            context: context,
+            step: stopRecordStep,
+            driver: driver,
+            options: {
+              openApiDefinitions,
+            },
+          });
+          stepResult.result = stepResult.status;
+          stepResult.resultDescription = stepResult.description;
+          delete stepResult.status;
+          delete stepResult.description;
+
+          // Add step result to report
+          const stepReport = {
+            ...stepResult,
+            ...step,
+          };
+          contextReport.steps.push(stepReport);
+          report.summary.steps[stepReport.result.toLowerCase()]++;
+        }
+
+        // Parse step results to calc context result
+
+        // If any step fails, context fails
+        if (contextReport.steps.find((step) => step.result === "FAIL"))
+          contextResult = "FAIL";
+        // If any step warns, context warns
+        else if (contextReport.steps.find((step) => step.result === "WARNING"))
+          contextResult = "WARNING";
+        // If all steps skipped, context skipped
+        else if (
+          contextReport.steps.length ===
+          contextReport.steps.filter((step) => step.result === "SKIPPED").length
+        )
+          contextResult = "SKIPPED";
+        // If all steps pass, context passes
+        else contextResult = "PASS";
+
+        contextReport = { result: contextResult, ...contextReport };
+        testReport.contexts.push(contextReport);
+        report.summary.contexts[contextResult.toLowerCase()]++;
+
+        if (driverRequired) {
+          // Close driver
+          try {
+            await driver.deleteSession();
+          } catch (error) {
+            log(
+              config,
+              "error",
+              `Failed to delete driver session: ${error.message}`
+            );
+          }
+        }
       }
-    }
-  }
 
-  // Execute all contexts in parallel using TestRunner
-  const concurrentRunners = config.concurrentRunners || resolvedTests.config.concurrentRunners || 1;
-  log(config, "info", `Using ${concurrentRunners} concurrent runners for ${allContexts.length} total contexts across all specs and tests`);
-  const testRunner = new TestRunner(concurrentRunners);
-  
-  const contextResults = await testRunner.runTests(allContexts, {
-    config,
-    runnerDetails,
-    availableApps,
-    platform,
-    metaValues,
-  });
-
-  // Process results and organize them back into spec/test structure
-  for (let i = 0; i < contextResults.length; i++) {
-    const result = contextResults[i];
-    const contextData = allContexts[i];
-    const location = contextToLocation.get(contextData);
-    
-    // Add context result to appropriate test report
-    location.testReport.contexts.push(result.contextReport);
-    
-    // Update summary counters
-    const contextResult = result.contextReport.result.toLowerCase();
-    report.summary.contexts[contextResult]++;
-    
-    // Update step counters
-    for (const [stepResult, count] of Object.entries(result.summary.steps)) {
-      report.summary.steps[stepResult] += count;
-    }
-  }
-
-  // Calculate test and spec results based on context results
-  for (const specReport of report.specs) {
-    for (const testReport of specReport.tests) {
       // Parse context results to calc test result
-      let testResult;
+
+      // If any context fails, test fails
       if (testReport.contexts.find((context) => context.result === "FAIL"))
         testResult = "FAIL";
-      else if (testReport.contexts.find((context) => context.result === "WARNING"))
+      // If any context warns, test warns
+      else if (
+        testReport.contexts.find((context) => context.result === "WARNING")
+      )
         testResult = "WARNING";
+      // If all contexts skipped, test skipped
       else if (
         testReport.contexts.length ===
-        testReport.contexts.filter((context) => context.result === "SKIPPED").length
+        testReport.contexts.filter((context) => context.result === "SKIPPED")
+          .length
       )
         testResult = "SKIPPED";
+      // If all contexts pass, test passes
       else testResult = "PASS";
 
-      testReport.result = testResult;
+      testReport = { result: testResult, ...testReport };
+      specReport.tests.push(testReport);
       report.summary.tests[testResult.toLowerCase()]++;
     }
 
     // Parse test results to calc spec result
-    let specResult;
+
+    // If any context fails, test fails
     if (specReport.tests.find((test) => test.result === "FAIL"))
       specResult = "FAIL";
+    // If any test warns, spec warns
     else if (specReport.tests.find((test) => test.result === "WARNING"))
       specResult = "WARNING";
+    // If all tests skipped, spec skipped
     else if (
       specReport.tests.length ===
       specReport.tests.filter((test) => test.result === "SKIPPED").length
     )
       specResult = "SKIPPED";
+    // If all contexts pass, test passes
     else specResult = "PASS";
 
-    specReport.result = specResult;
+    specReport = { result: specResult, ...specReport };
+    report.specs.push(specReport);
     report.summary.specs[specResult.toLowerCase()]++;
   }
 

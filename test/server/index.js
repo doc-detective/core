@@ -3,14 +3,12 @@ const bodyParser = require("body-parser");
 const path = require("path");
 const fs = require("fs");
 
-
 /**
  * Creates an echo server that can serve static content and echo back API requests
  * @param {Object} options - Configuration options
  * @param {number} [options.port=8080] - Port to run the server on
  * @param {string} [options.staticDir="public"] - Directory to serve static files from
  * @param {Function} [options.modifyResponse] - Function to modify responses before sending
- * @param {string} [options.logLevel="info"] - Logging level: "info" (default) or "silent"
  * @returns {Object} Server object with start and stop methods
  */
 function createServer(options = {}) {
@@ -18,19 +16,10 @@ function createServer(options = {}) {
     port = 8080,
     staticDir = "public",
     modifyResponse = (req, body) => body,
-    logLevel = "info",
   } = options;
-
 
   const app = express();
   let server = null;
-
-  // Helper for logging based on logLevel
-  const log = (...args) => {
-    if (logLevel !== "silent") {
-      console.log(...args);
-    }
-  };
 
   // Parse JSON and urlencoded bodies
   app.use(bodyParser.json({ limit: "10mb" }));
@@ -46,7 +35,7 @@ function createServer(options = {}) {
     try {
       const requestBody = req.method === "GET" ? req.query : req.body;
       const modifiedResponse = modifyResponse(req, requestBody);
-      log("Request:", {
+      console.log("Request:", {
         Method: req.method,
         Path: req.path,
         Query: req.query,
@@ -56,13 +45,11 @@ function createServer(options = {}) {
 
       res.set("x-server", "doc-detective-echo-server");
 
-      log("Response:", { Body: modifiedResponse });
+      console.log("Response:", { Body: modifiedResponse });
 
       res.json(modifiedResponse);
     } catch (error) {
-      if (logLevel !== "silent") {
-        console.error("Error processing request:", error);
-      }
+      console.error("Error processing request:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -72,25 +59,22 @@ function createServer(options = {}) {
      * Start the server
      * @returns {Promise} Promise that resolves with the server address
      */
+
     start: () => {
       return new Promise((resolve, reject) => {
         try {
           server = app.listen(port, () => {
             const serverAddress = `http://localhost:${port}`;
-            log(`Echo server running at ${serverAddress}`);
+            console.log(`Echo server running at ${serverAddress}`);
             resolve(serverAddress);
           });
 
           server.on("error", (error) => {
-            if (logLevel !== "silent") {
-              console.error(`Failed to start server: ${error.message}`);
-            }
+            console.error(`Failed to start server: ${error.message}`);
             reject(error);
           });
         } catch (error) {
-          if (logLevel !== "silent") {
-            console.error(`Error setting up server: ${error.message}`);
-          }
+          console.error(`Error setting up server: ${error.message}`);
           reject(error);
         }
       });
@@ -101,16 +85,14 @@ function createServer(options = {}) {
      * @returns {Promise} Promise that resolves when server is stopped
      */
     stop: () => {
-      return new Promise((resolve, reject) => {
+      return new Promise((resolve) => {
         if (server) {
           server.close((error) => {
             if (error) {
-              if (logLevel !== "silent") {
-                console.error("Error stopping server:", error);
-              }
+              console.error("Error stopping server:", error);
               reject(error);
             } else {
-              log("Echo server stopped");
+              console.log("Echo server stopped");
               server = null;
               resolve();
             }
