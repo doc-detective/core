@@ -766,8 +766,8 @@ async function driverStart(capabilities) {
     port: 4723,
     path: "/",
     capabilities,
-    connectionRetryTimeout: 120000, // 2 minutes
-    waitforTimeout: 120000, // 2 minutes
+    connectionRetryTimeout: 600000, // 10 minutes
+    waitforTimeout: 600000, // 10 minutes
   });
   driver.state = { url: "", x: null, y: null };
   return driver;

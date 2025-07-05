@@ -1,6 +1,6 @@
 {
   "name": "doc-detective-core",
-  "version": "3.1.1-dev.5",
+  "version": "3.1.2.dev.0",
   "description": "The doc testing framework.",
   "main": "src/index.js",
   "scripts": {
@@ -27,7 +27,7 @@
   },
   "homepage": "https://github.com/doc-detective/doc-detective-core#readme",
   "dependencies": {
-    "@apidevtools/json-schema-ref-parser": "^14.0.2",
+    "@apidevtools/json-schema-ref-parser": "^14.0.3",
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "@puppeteer/browsers": "^2.10.5",
     "ajv": "^8.17.1",
@@ -38,7 +38,7 @@
     "axios": "^1.10.0",
     "doc-detective-common": "^3.1.1",
     "doc-detective-resolver": "^3.1.1",
-    "dotenv": "^16.5.0",
+    "dotenv": "^17.0.1",
     "geckodriver": "^5.0.0",
     "jq-web": "^0.6.2",
     "json-schema-faker": "^0.5.9",
@@ -83,6 +83,6 @@
   "devDependencies": {
     "depcheck": "^1.4.7",
     "express": "^5.1.0",
-    "mocha": "^11.6.0"
+    "mocha": "^11.7.1"
   }
 }
