@@ -57,6 +57,7 @@ function getDriverCapabilities({ runnerDetails, name, options }) {
       capabilities = {
         platformName: runnerDetails.environment.platform,
         "appium:automationName": "Gecko",
+        "appium:newCommandTimeout": 600, // 10 minutes
         "wdio:enforceWebDriverClassic": true,
         browserName: "MozillaFirefox",
         "moz:firefoxOptions": {
@@ -81,6 +82,7 @@ function getDriverCapabilities({ runnerDetails, name, options }) {
         capabilities = {
           platformName: "Mac",
           "appium:automationName": "Safari",
+          "appium:newCommandTimeout": 600, // 10 minutes
           "wdio:enforceWebDriverClassic": true,
           browserName: "Safari",
         };
@@ -102,6 +104,7 @@ function getDriverCapabilities({ runnerDetails, name, options }) {
         capabilities = {
           platformName: runnerDetails.environment.platform,
           "appium:automationName": "Chromium",
+          "appium:newCommandTimeout": 600, // 10 minutes
           "appium:executable": chromium.driver,
           browserName: "chrome",
           "wdio:enforceWebDriverClassic": true,
