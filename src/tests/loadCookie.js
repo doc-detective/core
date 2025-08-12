@@ -1,0 +1,267 @@
+const { validate } = require("doc-detective-common");
+const { log } = require("../utils");
+const path = require("path");
+const fs = require("fs");
+
+exports.loadCookie = loadCookie;
+
+/**
+ * Load a specific cookie from a file or environment variable into the browser.
+ * @async
+ * @param {Object} config - The test configuration.
+ * @param {Object} step - The step object containing loadCookie options.
+ * @param {Object} driver - The WebDriver instance.
+ * @returns {Promise<Object>} A result object indicating success or failure.
+ */
+async function loadCookie({ config, step, driver }) {
+  let result = {
+    status: "PASS",
+    description: "Loaded cookie.",
+    outputs: {},
+  };
+
+  // Validate step payload
+  const isValidStep = validate({ schemaKey: "step_v3", object: step });
+  if (!isValidStep.valid) {
+    result.status = "FAIL";
+    result.description = `Invalid step definition: ${isValidStep.errors}`;
+    return result;
+  }
+  // Accept coerced and defaulted values
+  step = isValidStep.object;
+
+  // Parse configuration
+  let cookieName, filePath, directory, domain, variable;
+
+  if (typeof step.loadCookie === "string") {
+    // Simple string format - could be cookie name or file path
+    if (step.loadCookie.endsWith('.txt')) {
+      // Looks like a file path
+      filePath = step.loadCookie;
+    } else {
+      // Treat as cookie name, load from environment variable
+      cookieName = step.loadCookie;
+      variable = cookieName;
+    }
+  } else {
+    // Object format
+    cookieName = step.loadCookie.name;
+    filePath = step.loadCookie.path;
+    directory = step.loadCookie.directory;
+    domain = step.loadCookie.domain;
+    variable = step.loadCookie.variable;
+  }
+
+  try {
+    let targetCookie = null;
+
+    if (variable) {
+      // Load cookie from environment variable
+      const cookieData = process.env[variable];
+      if (!cookieData) {
+        result.status = "FAIL";
+        result.description = `Environment variable '${variable}' not found or empty`;
+        return result;
+      }
+
+      try {
+        targetCookie = JSON.parse(cookieData);
+        log(config, "debug", `Loaded cookie from environment variable '${variable}'`);
+      } catch (parseError) {
+        result.status = "FAIL";
+        result.description = `Failed to parse cookie data from environment variable '${variable}': ${parseError.message}`;
+        return result;
+      }
+    } else if (filePath) {
+      // Load cookie from file
+      const inputDirectory = directory || config.input || process.cwd();
+      const fullPath = path.resolve(inputDirectory, filePath);
+
+      if (!fs.existsSync(fullPath)) {
+        result.status = "FAIL";
+        result.description = `Cookie file '${fullPath}' not found`;
+        return result;
+      }
+
+      try {
+        const fileContent = fs.readFileSync(fullPath, 'utf8');
+        const cookies = parseNetscapeCookieFile(fileContent);
+        
+        if (cookies.length === 0) {
+          result.status = "FAIL";
+          result.description = `No valid cookies found in file '${fullPath}'`;
+          return result;
+        }
+
+        // Find the specific cookie if name is provided
+        if (cookieName) {
+          targetCookie = cookies.find(cookie => {
+            const nameMatches = cookie.name === cookieName;
+            const domainMatches = !domain || (cookie.domain && (
+              cookie.domain === domain || 
+              cookie.domain === '.' + domain ||
+              cookie.domain.endsWith('.' + domain)
+            ));
+            return nameMatches && domainMatches;
+          });
+
+          if (!targetCookie) {
+            result.status = "FAIL";
+            result.description = `Cookie '${cookieName}' not found in file '${fullPath}'${domain ? ` for domain '${domain}'` : ''}`;
+            return result;
+          }
+        } else {
+          // If no specific name, take the first cookie (or filter by domain)
+          if (domain) {
+            targetCookie = cookies.find(cookie => 
+              cookie.domain === domain || 
+              cookie.domain === '.' + domain ||
+              cookie.domain.endsWith('.' + domain)
+            );
+          } else {
+            targetCookie = cookies[0];
+          }
+
+          if (!targetCookie) {
+            result.status = "FAIL";
+            result.description = `No suitable cookie found in file '${fullPath}'${domain ? ` for domain '${domain}'` : ''}`;
+            return result;
+          }
+        }
+
+        log(config, "debug", `Loaded cookie '${targetCookie.name}' from file: ${fullPath}`);
+      } catch (readError) {
+        result.status = "FAIL";
+        result.description = `Failed to read cookie file '${fullPath}': ${readError.message}`;
+        return result;
+      }
+    } else {
+      result.status = "FAIL";
+      result.description = "No cookie source specified (file path or environment variable)";
+      return result;
+    }
+
+    // Validate cookie data
+    if (!targetCookie || !targetCookie.name) {
+      result.status = "FAIL";
+      result.description = "Invalid cookie data: missing name";
+      return result;
+    }
+
+    // Check for domain compatibility
+    const currentUrl = await driver.getUrl();
+    const currentDomain = new URL(currentUrl).hostname;
+    
+    if (targetCookie.domain && !isDomainCompatible(currentDomain, targetCookie.domain)) {
+      result.status = "FAIL";
+      result.description = `Cookie domain '${targetCookie.domain}' is not compatible with current page domain '${currentDomain}'`;
+      return result;
+    }
+
+    // Prepare cookie for WebDriver
+    const cookieForDriver = {
+      name: targetCookie.name,
+      value: targetCookie.value,
+      path: targetCookie.path || '/',
+      secure: targetCookie.secure || false
+    };
+
+    // Handle domain: if the cookie domain matches the current domain exactly,
+    // omit the domain property to let WebDriver set it automatically
+    if (targetCookie.domain) {
+      const normalizedCookieDomain = targetCookie.domain.startsWith('.') ? 
+        targetCookie.domain.substring(1) : targetCookie.domain;
+      
+      if (normalizedCookieDomain !== currentDomain) {
+        // Only set domain if it's different from current domain
+        cookieForDriver.domain = targetCookie.domain;
+      }
+    }
+
+    // Add expiry if it exists and is valid
+    if (targetCookie.expiry && targetCookie.expiry > Math.floor(Date.now() / 1000)) {
+      cookieForDriver.expiry = targetCookie.expiry;
+    }
+
+    // Set the cookie in the browser
+    await driver.setCookies(cookieForDriver);
+    
+    result.description = `Loaded cookie '${targetCookie.name}' into browser.`;
+    result.outputs.cookieName = targetCookie.name;
+    result.outputs.domain = targetCookie.domain;
+    
+    log(config, "debug", `Successfully set cookie '${targetCookie.name}' in browser`);
+
+  } catch (error) {
+    result.status = "FAIL";
+    result.description = `Failed to load cookie: ${error.message}`;
+    log(config, "error", result.description);
+  }
+
+  return result;
+}
+
+/**
+ * Parse Netscape cookie file format.
+ * @param {string} content - File content.
+ * @returns {Array} Array of cookie objects.
+ */
+function parseNetscapeCookieFile(content) {
+  const cookies = [];
+  const lines = content.split('\n');
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    // Skip comments and empty lines
+    if (trimmed.startsWith('#') || trimmed === '') {
+      continue;
+    }
+
+    const parts = trimmed.split('\t');
+    if (parts.length >= 7) {
+      const cookie = {
+        domain: parts[0],
+        path: parts[2],
+        secure: parts[3] === 'TRUE',
+        name: parts[5],
+        value: parts[6]
+      };
+
+      // Add expiry if it's a valid number and greater than current time
+      const expiry = parseInt(parts[4]);
+      if (!isNaN(expiry) && expiry > 0) {
+        // Only add expiry if it's in the future
+        const currentTime = Math.floor(Date.now() / 1000);
+        if (expiry > currentTime) {
+          cookie.expiry = expiry;
+        }
+        // If expiry is 0 or in the past, omit it (creates a session cookie)
+      }
+
+      cookies.push(cookie);
+    }
+  }
+
+  return cookies;
+}
+
+/**
+ * Check if a cookie domain is compatible with the current page domain.
+ * @param {string} currentDomain - Current page domain.
+ * @param {string} cookieDomain - Cookie domain.
+ * @returns {boolean} True if compatible.
+ */
+function isDomainCompatible(currentDomain, cookieDomain) {
+  if (!cookieDomain) return true;
+  
+  // Remove leading dot from cookie domain for comparison
+  const normalizedCookieDomain = cookieDomain.startsWith('.') ? cookieDomain.substring(1) : cookieDomain;
+  
+  // Exact match
+  if (currentDomain === normalizedCookieDomain) return true;
+  
+  // Current domain is a subdomain of cookie domain
+  if (currentDomain.endsWith('.' + normalizedCookieDomain)) return true;
+  
+  return false;
+}

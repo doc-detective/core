@@ -1,0 +1,35 @@
+{
+  "tests": [
+    {
+      "description": "Test single cookie save and load functionality",
+      "steps": [
+        {
+          "goTo": "https://httpbin.org/cookies/set/test_cookie/test_value"
+        },
+        {
+          "saveCookie": {
+            "name": "test_cookie",
+            "path": "test-cookie.txt",
+            "overwrite": "true"
+          }
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "goTo": "https://httpbin.org/"
+        },
+        {
+          "loadCookie": {
+            "name": "test_cookie",
+            "path": "test-cookie.txt"
+          }
+        },
+        {
+          "goTo": "https://httpbin.org/cookies"
+        }
+      ]
+    }
+  ]
+}

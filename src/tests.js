@@ -14,6 +14,8 @@ const { saveScreenshot } = require("./tests/saveScreenshot");
 const { startRecording } = require("./tests/startRecording");
 const { stopRecording } = require("./tests/stopRecording");
 const { loadVariables } = require("./tests/loadVariables");
+const { saveCookie } = require("./tests/saveCookie");
+const { loadCookie } = require("./tests/loadCookie");
 const { httpRequest } = require("./tests/httpRequest");
 const { clickElement } = require("./tests/click");
 const { runCode } = require("./tests/runCode");
@@ -35,7 +37,9 @@ const driverActions = [
   "stopRecord",
   "find",
   "goTo",
+  "loadCookie",
   "record",
+  "saveCookie",
   "screenshot",
   "type",
 ];
@@ -678,6 +682,18 @@ async function runStep({
     actionResult = await goTo({ config: config, step: step, driver: driver });
   } else if (typeof step.loadVariables !== "undefined") {
     actionResult = await loadVariables({ step: step });
+  } else if (typeof step.saveCookie !== "undefined") {
+    actionResult = await saveCookie({
+      config: config,
+      step: step,
+      driver: driver,
+    });
+  } else if (typeof step.loadCookie !== "undefined") {
+    actionResult = await loadCookie({
+      config: config,
+      step: step,
+      driver: driver,
+    });
   } else if (typeof step.httpRequest !== "undefined") {
     actionResult = await httpRequest({
       config: config,

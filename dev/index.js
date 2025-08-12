@@ -27,9 +27,15 @@ main();
 
 async function main() {
   const json = {
-    input: "dev/dev.spec.yaml",
-    allowUnsafeSteps: false,
+    input: "/home/hawkeyexl/Workspaces/core/test/artifacts/cookie-test.spec.json",
     logLevel: "debug",
+    runOn:[{
+      platforms: ["linux"],
+      browsers: [{
+        name: "firefox",
+        headless: false
+      }]
+    }]
   };
   // console.log(json);
   result = await runTests(json);
