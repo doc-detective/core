@@ -163,7 +163,9 @@ async function loadCookie({ config, step, driver }) {
       name: targetCookie.name,
       value: targetCookie.value,
       path: targetCookie.path || '/',
-      secure: targetCookie.secure || false
+      secure: targetCookie.secure || false,
+      httpOnly: targetCookie.httpOnly || false,
+      sameSite: targetCookie.sameSite || 'None'
     };
 
     // Handle domain: if the cookie domain matches the current domain exactly,
@@ -224,7 +226,9 @@ function parseNetscapeCookieFile(content) {
         path: parts[2],
         secure: parts[3] === 'TRUE',
         name: parts[5],
-        value: parts[6]
+        value: parts[6],
+        httpOnly: parts.length > 7 && parts[7] === 'TRUE' || false,
+        sameSite: parts.length > 8 ? parts[8] : 'None'
       };
 
       // Add expiry if it's a valid number and greater than current time

@@ -151,9 +151,12 @@ ${netscapeCookie}
 function formatCookieForNetscape(cookie) {
   // Netscape format: domain	flag	path	secure	expiration	name	value
   const domain = cookie.domain || '';
+  // The flag indicates if the domain applies to all subdomains
+  // TRUE if domain starts with '.' (applies to subdomains), FALSE for exact domain match
   const flag = domain.startsWith('.') ? 'TRUE' : 'FALSE';
   const cookiePath = cookie.path || '/';
   const secure = cookie.secure ? 'TRUE' : 'FALSE';
+  // Use expiry if available, otherwise 0 for session cookie
   const expiry = cookie.expiry ? cookie.expiry.toString() : '0';
   const name = cookie.name || '';
   const value = cookie.value || '';
