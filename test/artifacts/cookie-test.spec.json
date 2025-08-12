@@ -9,7 +9,39 @@
       ]
     },
     {
-      "testId": "cookie-save",
+      "testId": "cookie-env-save",
+      "description": "Test single cookie save functionality",
+      "steps": [
+        {
+          "goTo": "http://localhost/cookies/set/test_env_cookie/test_env_value"
+        },
+        {
+          "saveCookie": "test_env_cookie"
+        },
+        {
+          "goTo": "http://localhost/cookies"
+        }
+      ]
+    },
+    {
+      "testId": "cookie-env-load",
+      "steps": [
+        {
+          "goTo": "http://localhost/"
+        },
+        {
+          "loadCookie": "test_env_cookie"
+        },
+        {
+          "goTo": "http://localhost/cookies"
+        },
+        {
+          "find": "/.*?test_env_value.*?/"
+        }
+      ]
+    },
+    {
+      "testId": "cookie-file-save",
       "description": "Test single cookie save and load functionality",
       "steps": [
         {
@@ -25,7 +57,7 @@
       ]
     },
     {
-      "testId": "cookie-load",
+      "testId": "cookie-file-load",
       "steps": [
         {
           "goTo": "http://localhost/"
@@ -38,6 +70,9 @@
         },
         {
           "goTo": "http://localhost/cookies"
+        },
+        {
+          "find": "/.*?test_value.*?/"
         }
       ]
     },
