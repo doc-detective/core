@@ -1,10 +1,19 @@
 {
   "tests": [
     {
+      "testId": "cookie-setup",
+      "steps": [
+        {
+          "runShell": "docker pull kennethreitz/httpbin && docker run -d -p 80:80 kennethreitz/httpbin"
+        }
+      ]
+    },
+    {
+      "testId": "cookie-save",
       "description": "Test single cookie save and load functionality",
       "steps": [
         {
-          "goTo": "https://httpbin.org/cookies/set/test_cookie/test_value"
+          "goTo": "http://localhost/cookies/set/test_cookie/test_value"
         },
         {
           "saveCookie": {
@@ -16,9 +25,10 @@
       ]
     },
     {
+      "testId": "cookie-load",
       "steps": [
         {
-          "goTo": "https://httpbin.org/"
+          "goTo": "http://localhost/"
         },
         {
           "loadCookie": {
@@ -27,7 +37,21 @@
           }
         },
         {
-          "goTo": "https://httpbin.org/cookies"
+          "goTo": "http://localhost/cookies"
+        }
+      ]
+    },
+    {
+      "testId": "cookie-cleanup",
+      "steps": [
+        {
+          "runShell": {
+            "command": "rm test-cookie.txt",
+            "workingDirectory": "."
+          }
+        },
+        {
+          "runShell": "docker stop $(docker ps -q --filter ancestor=kennethreitz/httpbin)"
         }
       ]
     }
