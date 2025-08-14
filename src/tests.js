@@ -508,7 +508,7 @@ async function runSpecs({ resolvedTests }) {
           log(
             config,
             "debug",
-            `RESULT: ${stepResult.status}, ${stepResult.description}`
+            `RESULT: ${stepResult.status}\n${JSON.stringify(stepResult, null, 2)}`
           );
 
           stepResult.result = stepResult.status;
