@@ -289,12 +289,21 @@ function parseNetscapeCookieFile(content) {
 
   for (const line of lines) {
     const trimmed = line.trim();
-    // Skip comments and empty lines
-    if (trimmed.startsWith("#") || trimmed === "") {
+    // Skip comments and empty lines, but allow #HttpOnly_ prefixed lines
+    if ((trimmed.startsWith("#") && !trimmed.startsWith("#HttpOnly_")) || trimmed === "") {
       continue;
     }
 
-    const parts = trimmed.split("\t");
+    // Check if this is an #HttpOnly_ prefixed line
+    const isHttpOnlyLine = trimmed.startsWith("#HttpOnly_");
+    let lineToParse = trimmed;
+    
+    if (isHttpOnlyLine) {
+      // Remove the #HttpOnly_ prefix for parsing
+      lineToParse = trimmed.substring(10); // Remove "#HttpOnly_"
+    }
+
+    const parts = lineToParse.split("\t");
     if (parts.length >= 7) {
       const cookie = {
         domain: parts[0],
@@ -302,7 +311,7 @@ function parseNetscapeCookieFile(content) {
         secure: parts[3] === "TRUE",
         name: parts[5],
         value: parts[6],
-        httpOnly: (parts.length > 7 && parts[7] === "TRUE") || false,
+        httpOnly: isHttpOnlyLine || (parts.length > 7 && parts[7] === "TRUE"),
         sameSite: parts.length > 8 ? parts[8] : "Lax",
       };
 
