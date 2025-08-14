@@ -51,6 +51,14 @@ async function loadCookie({ config, step, driver }) {
     directory = step.loadCookie.directory;
     domain = step.loadCookie.domain;
     variable = step.loadCookie.variable;
+
+    // If only a file path is provided and name is omitted, infer name from filename
+    if (filePath && !cookieName) {
+      const ext = path.extname(filePath).toLowerCase();
+      if (ext === ".txt") {
+        cookieName = path.basename(filePath, ext);
+      }
+    }
   }
 
   try {
