@@ -99,7 +99,7 @@ async function saveCookie({ config, step, driver }) {
       const fullPath = path.resolve(outputDirectory, filePath);
 
       // Check if file exists and handle overwrite
-      if (fs.existsSync(fullPath) && overwrite !== "true") {
+      if (fs.existsSync(fullPath) && !(overwrite === true || overwrite === "true")) {  
         result.status = "FAIL";
         result.description = `File '${fullPath}' already exists and overwrite is not enabled.`;
         return result;
