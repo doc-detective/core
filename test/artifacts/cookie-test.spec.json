@@ -81,7 +81,7 @@
       "steps": [
         {
           "runShell": {
-            "command": "rm test-cookie.txt",
+            "command": "rm -f test-cookie.txt",
             "workingDirectory": "."
           }
         },
