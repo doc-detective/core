@@ -38,6 +38,7 @@ async function loadCookie({ config, step, driver }) {
     if (step.loadCookie.endsWith(".txt")) {
       // Looks like a file path
       filePath = step.loadCookie;
+      cookieName = step.loadCookie.replace(/\.txt$/, ""); // Use the file name without .txt as cookie name
     } else {
       // Treat as cookie name, load from environment variable
       cookieName = step.loadCookie;
