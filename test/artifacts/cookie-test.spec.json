@@ -1,6 +1,6 @@
 {
   "specId": "cookie-tests",
-  "description": "Doesn't run on macOS because the macOS runner doesn't have Docker (ARM-based macOS doesn't support nested virtualization).",
+  "description": "Doesn't run on macOS because the macOS runner doesn't have Docker (ARM-based macOS doesn't support nested virtualization). Doesn't run on Windows because the Windows runner only allows Windows containers.",
   "runOn": [
     {
       "browsers": [
@@ -9,7 +9,7 @@
           "headless": true
         }
       ],
-      "platforms": ["windows", "linux"]
+      "platforms": ["linux"]
     }
   ],
   "tests": [
