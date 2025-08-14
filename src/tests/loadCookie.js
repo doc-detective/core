@@ -78,7 +78,7 @@ async function loadCookie({ config, step, driver }) {
       }
     } else if (filePath) {
       // Load cookie from file
-      const inputDirectory = directory || config.input || process.cwd();
+      const inputDirectory = directory || config.output || process.cwd();
       const fullPath = path.resolve(inputDirectory, filePath);
 
       if (!fs.existsSync(fullPath)) {
@@ -182,7 +182,7 @@ async function loadCookie({ config, step, driver }) {
     };
 
     // Handle domain: special handling for localhost and IP addresses
-    const isLocalhost = currentDomain === 'localhost' || currentDomain.startsWith('127.') || currentDomain.startsWith('192.168.') || currentDomain.startsWith('10.') || currentDomain.startsWith('172.');
+    const isLocalhost = isLocalOrPrivateNetwork(currentDomain);
     
     if (targetCookie.domain && !isLocalhost) {
       const normalizedCookieDomain = targetCookie.domain.startsWith(".")
@@ -226,6 +226,59 @@ async function loadCookie({ config, step, driver }) {
 }
 
 /**
+ * Check if a domain is localhost or a private network IP address.
+ * @param {string} domain - The domain to check.
+ * @returns {boolean} True if the domain is localhost or a private IP.
+ */
+function isLocalOrPrivateNetwork(domain) {
+  // Check for localhost and IPv6 loopback
+  if (domain === 'localhost' || domain === '::1') {
+    return true;
+  }
+
+  // Check if it's an IPv4 address
+  const ipv4Regex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
+  const match = domain.match(ipv4Regex);
+  
+  if (!match) {
+    return false; // Not an IPv4 address
+  }
+
+  // Parse octets
+  const octets = match.slice(1, 5).map(Number);
+  
+  // Validate that all octets are in valid range (0-255)
+  if (octets.some(octet => octet < 0 || octet > 255)) {
+    return false;
+  }
+
+  const [first, second] = octets;
+
+  // Check private IP ranges:
+  // 127.0.0.0/8 (loopback)
+  if (first === 127) {
+    return true;
+  }
+  
+  // 10.0.0.0/8 (private class A)
+  if (first === 10) {
+    return true;
+  }
+  
+  // 192.168.0.0/16 (private class C)
+  if (first === 192 && second === 168) {
+    return true;
+  }
+  
+  // 172.16.0.0/12 (private class B: 172.16.0.0 to 172.31.255.255)
+  if (first === 172 && second >= 16 && second <= 31) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Parse Netscape cookie file format.
  * @param {string} content - File content.
  * @returns {Array} Array of cookie objects.
@@ -250,7 +303,7 @@ function parseNetscapeCookieFile(content) {
         name: parts[5],
         value: parts[6],
         httpOnly: (parts.length > 7 && parts[7] === "TRUE") || false,
-        sameSite: parts.length > 8 ? parts[8] : "None",
+        sameSite: parts.length > 8 ? parts[8] : "Lax",
       };
 
       // Add expiry if it's a valid number and greater than current time
