@@ -14,6 +14,8 @@ const { saveScreenshot } = require("./tests/saveScreenshot");
 const { startRecording } = require("./tests/startRecording");
 const { stopRecording } = require("./tests/stopRecording");
 const { loadVariables } = require("./tests/loadVariables");
+const { saveCookie } = require("./tests/saveCookie");
+const { loadCookie } = require("./tests/loadCookie");
 const { httpRequest } = require("./tests/httpRequest");
 const { clickElement } = require("./tests/click");
 const { runCode } = require("./tests/runCode");
@@ -35,7 +37,9 @@ const driverActions = [
   "stopRecord",
   "find",
   "goTo",
+  "loadCookie",
   "record",
+  "saveCookie",
   "screenshot",
   "type",
 ];
@@ -336,8 +340,6 @@ async function runSpecs({ resolvedTests }) {
           context.browser = getDefaultBrowser({ runnerDetails });
         }
 
-        log(config, "debug", `CONTEXT:\n${JSON.stringify(context, null, 2)}`);
-
         // Set context report
         let contextReport = {
           platform: context.platform,
@@ -361,15 +363,14 @@ async function runSpecs({ resolvedTests }) {
           log(
             config,
             "warning",
-            `Skipping context. The current system doesn't support this context (${JSON.stringify(
-              context
-            )}).`
+            `Skipping context. The current system doesn't support this context: {"platform": "${context.platform}", "apps": ${JSON.stringify(context.apps)}}`
           );
           contextReport = { result: { status: "SKIPPED" }, ...contextReport };
           report.summary.contexts.skipped++;
           testReport.contexts.push(contextReport);
           continue;
         }
+        log(config, "debug", `CONTEXT:\n${JSON.stringify(context, null, 2)}`);
 
         let driver;
         // Ensure context contains a 'steps' property
@@ -507,7 +508,7 @@ async function runSpecs({ resolvedTests }) {
           log(
             config,
             "debug",
-            `RESULT: ${stepResult.status}, ${stepResult.description}`
+            `RESULT: ${stepResult.status}\n${JSON.stringify(stepResult, null, 2)}`
           );
 
           stepResult.result = stepResult.status;
@@ -678,6 +679,18 @@ async function runStep({
     actionResult = await goTo({ config: config, step: step, driver: driver });
   } else if (typeof step.loadVariables !== "undefined") {
     actionResult = await loadVariables({ step: step });
+  } else if (typeof step.saveCookie !== "undefined") {
+    actionResult = await saveCookie({
+      config: config,
+      step: step,
+      driver: driver,
+    });
+  } else if (typeof step.loadCookie !== "undefined") {
+    actionResult = await loadCookie({
+      config: config,
+      step: step,
+      driver: driver,
+    });
   } else if (typeof step.httpRequest !== "undefined") {
     actionResult = await httpRequest({
       config: config,
