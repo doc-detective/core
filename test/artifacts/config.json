@@ -16,7 +16,7 @@
     "downloadDirectory": ".",
     "contexts": [
       {
-        "app": { "name": "firefox", "options": { "headless": false } },
+        "app": { "name": "firefox", "options": { "headless": true } },
         "platforms": ["mac", "linux"]
       },
       {
