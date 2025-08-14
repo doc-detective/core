@@ -340,8 +340,6 @@ async function runSpecs({ resolvedTests }) {
           context.browser = getDefaultBrowser({ runnerDetails });
         }
 
-        log(config, "debug", `CONTEXT:\n${JSON.stringify(context, null, 2)}`);
-
         // Set context report
         let contextReport = {
           platform: context.platform,
@@ -365,15 +363,14 @@ async function runSpecs({ resolvedTests }) {
           log(
             config,
             "warning",
-            `Skipping context. The current system doesn't support this context (${JSON.stringify(
-              context
-            )}).`
+            `Skipping context. The current system doesn't support this context: {"platform": "${context.platform}", "apps": ${JSON.stringify(context.apps)}}`
           );
           contextReport = { result: { status: "SKIPPED" }, ...contextReport };
           report.summary.contexts.skipped++;
           testReport.contexts.push(contextReport);
           continue;
         }
+        log(config, "debug", `CONTEXT:\n${JSON.stringify(context, null, 2)}`);
 
         let driver;
         // Ensure context contains a 'steps' property
