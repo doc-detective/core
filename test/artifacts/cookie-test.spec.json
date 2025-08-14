@@ -3,7 +3,12 @@
   "description": "Doesn't run on macOS because the macOS runner doesn't have Docker (ARM-based macOS doesn't support nested virtualization).",
   "runOn": [
     {
-      "app": { "name": "firefox", "options": { "headless": true } },
+      "browsers": [
+        {
+          "name": "firefox",
+          "headless": true
+        }
+      ],
       "platforms": ["windows", "linux"]
     }
   ],

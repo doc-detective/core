@@ -204,7 +204,7 @@ async function loadCookie({ config, step, driver }) {
 
       if (normalizedCookieDomain !== currentDomain) {
         // Only set domain if it's different from current domain and not localhost
-        cookieForDriver.domain = targetCookie.domain;
+        cookieForDriver.domain = normalizedCookieDomain;
       }
     }
     // For localhost/IP addresses, never set the domain property - let the browser handle it
