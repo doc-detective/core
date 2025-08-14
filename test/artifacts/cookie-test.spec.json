@@ -4,7 +4,7 @@
       "testId": "cookie-setup",
       "steps": [
         {
-          "runShell": "docker pull kennethreitz/httpbin && docker run -d -p 80:80 kennethreitz/httpbin"
+          "runShell": "docker pull kennethreitz/httpbin && docker run -d -p 8080:80 kennethreitz/httpbin"
         }
       ]
     },
@@ -13,13 +13,13 @@
       "description": "Test single cookie save functionality",
       "steps": [
         {
-          "goTo": "http://localhost/cookies/set/test_env_cookie/test_env_value"
+          "goTo": "http://localhost:8080/cookies/set/test_env_cookie/test_env_value"
         },
         {
           "saveCookie": "test_env_cookie"
         },
         {
-          "goTo": "http://localhost/cookies"
+          "goTo": "http://localhost:8080/cookies"
         }
       ]
     },
@@ -27,13 +27,13 @@
       "testId": "cookie-env-load",
       "steps": [
         {
-          "goTo": "http://localhost/"
+          "goTo": "http://localhost:8080/"
         },
         {
           "loadCookie": "test_env_cookie"
         },
         {
-          "goTo": "http://localhost/cookies"
+          "goTo": "http://localhost:8080/cookies"
         },
         {
           "find": "/.*?test_env_value.*?/"
@@ -45,7 +45,7 @@
       "description": "Test single cookie save and load functionality",
       "steps": [
         {
-          "goTo": "http://localhost/cookies/set/test_cookie/test_value"
+          "goTo": "http://localhost:8080/cookies/set/test_cookie/test_value"
         },
         {
           "saveCookie": {
@@ -60,7 +60,7 @@
       "testId": "cookie-file-load",
       "steps": [
         {
-          "goTo": "http://localhost/"
+          "goTo": "http://localhost:8080/"
         },
         {
           "loadCookie": {
@@ -69,7 +69,7 @@
           }
         },
         {
-          "goTo": "http://localhost/cookies"
+          "goTo": "http://localhost:8080/cookies"
         },
         {
           "find": "/.*?test_value.*?/"
