@@ -38,7 +38,7 @@ async function loadCookie({ config, step, driver }) {
     if (step.loadCookie.endsWith(".txt")) {
       // Looks like a file path
       filePath = step.loadCookie;
-      cookieName = step.loadCookie.replace(/\.txt$/, ""); // Use the file name without .txt as cookie name
+      cookieName = path.basename(step.loadCookie, ".txt");
     } else {
       // Treat as cookie name, load from environment variable
       cookieName = step.loadCookie;
@@ -157,11 +157,11 @@ async function loadCookie({ config, step, driver }) {
 
     // Prepare cookie for WebDriver
     // Handle sameSite and secure relationship: if sameSite is "None", secure must be true
-    const isHttps = currentUrl.startsWith('https://');
-    
+    const isHttps = currentUrl.startsWith("https://");
+
     let sameSite = targetCookie.sameSite || "Lax"; // Default to "Lax" instead of "None"
     let secure = targetCookie.secure || false;
-    
+
     // If sameSite is "None", secure must be true, but only if we're on HTTPS
     if (sameSite === "None") {
       if (isHttps) {
@@ -169,7 +169,11 @@ async function loadCookie({ config, step, driver }) {
       } else {
         // For HTTP, we can't use sameSite: "None", fall back to "Lax"
         sameSite = "Lax";
-        log(config, "debug", `Changed sameSite from "None" to "Lax" because current URL is HTTP`);
+        log(
+          config,
+          "debug",
+          `Changed sameSite from "None" to "Lax" because current URL is HTTP`
+        );
       }
     }
 
@@ -184,7 +188,7 @@ async function loadCookie({ config, step, driver }) {
 
     // Handle domain: special handling for localhost and IP addresses
     const isLocalhost = isLocalOrPrivateNetwork(currentDomain);
-    
+
     if (targetCookie.domain && !isLocalhost) {
       const normalizedCookieDomain = targetCookie.domain.startsWith(".")
         ? targetCookie.domain.substring(1)
@@ -233,23 +237,23 @@ async function loadCookie({ config, step, driver }) {
  */
 function isLocalOrPrivateNetwork(domain) {
   // Check for localhost and IPv6 loopback
-  if (domain === 'localhost' || domain === '::1') {
+  if (domain === "localhost" || domain === "::1") {
     return true;
   }
 
   // Check if it's an IPv4 address
   const ipv4Regex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
   const match = domain.match(ipv4Regex);
-  
+
   if (!match) {
     return false; // Not an IPv4 address
   }
 
   // Parse octets
   const octets = match.slice(1, 5).map(Number);
-  
+
   // Validate that all octets are in valid range (0-255)
-  if (octets.some(octet => octet < 0 || octet > 255)) {
+  if (octets.some((octet) => octet < 0 || octet > 255)) {
     return false;
   }
 
@@ -260,17 +264,17 @@ function isLocalOrPrivateNetwork(domain) {
   if (first === 127) {
     return true;
   }
-  
+
   // 10.0.0.0/8 (private class A)
   if (first === 10) {
     return true;
   }
-  
+
   // 192.168.0.0/16 (private class C)
   if (first === 192 && second === 168) {
     return true;
   }
-  
+
   // 172.16.0.0/12 (private class B: 172.16.0.0 to 172.31.255.255)
   if (first === 172 && second >= 16 && second <= 31) {
     return true;
@@ -291,14 +295,17 @@ function parseNetscapeCookieFile(content) {
   for (const line of lines) {
     const trimmed = line.trim();
     // Skip comments and empty lines, but allow #HttpOnly_ prefixed lines
-    if ((trimmed.startsWith("#") && !trimmed.startsWith("#HttpOnly_")) || trimmed === "") {
+    if (
+      (trimmed.startsWith("#") && !trimmed.startsWith("#HttpOnly_")) ||
+      trimmed === ""
+    ) {
       continue;
     }
 
     // Check if this is an #HttpOnly_ prefixed line
     const isHttpOnlyLine = trimmed.startsWith("#HttpOnly_");
     let lineToParse = trimmed;
-    
+
     if (isHttpOnlyLine) {
       // Remove the #HttpOnly_ prefix for parsing
       lineToParse = trimmed.substring(10); // Remove "#HttpOnly_"
