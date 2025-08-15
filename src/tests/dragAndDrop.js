@@ -25,6 +25,33 @@ async function dragAndDropElement({ config, step, driver, element }) {
   // Accept coerced and defaulted values
   step = isValidStep.object;
 
+  // Check if dragAndDrop object exists
+  if (!step.dragAndDrop) {
+    result.status = "FAIL";
+    result.description = "No dragAndDrop configuration found.";
+    return result;
+  }
+
+  // Check if source and target are provided
+  if (!step.dragAndDrop.source) {
+    result.status = "FAIL";
+    result.description = "Source element is required.";
+    return result;
+  }
+
+  if (!step.dragAndDrop.target) {
+    result.status = "FAIL";
+    result.description = "Target element is required.";
+    return result;
+  }
+
+  // Check if driver is available
+  if (!driver) {
+    result.status = "FAIL";
+    result.description = "Browser driver is required for drag and drop operations.";
+    return result;
+  }
+
   // Set default duration if not provided
   const duration = step.dragAndDrop.duration || 1000;
 
