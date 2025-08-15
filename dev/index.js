@@ -3,7 +3,7 @@ const { runTests } = require("../src");
 
 async function main() {
   const json = {
-    input: "/home/hawkeyexl/Workspaces/core/test/artifacts/cookie-test.spec.json",
+    input: "/home/hawkeyexl/Workspaces/core/dev/dev.spec.yaml",
     logLevel: "debug",
     runOn:[{
       platforms: ["linux"],

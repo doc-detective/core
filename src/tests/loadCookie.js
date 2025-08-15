@@ -37,8 +37,8 @@ async function loadCookie({ config, step, driver }) {
     // Simple string format - could be cookie name or file path
     if (step.loadCookie.endsWith(".txt")) {
       // Looks like a file path
-      filePath = step.loadCookie;
       cookieName = path.basename(step.loadCookie, ".txt");
+      filePath = step.loadCookie;
     } else {
       // Treat as cookie name, load from environment variable
       cookieName = step.loadCookie;
@@ -198,14 +198,7 @@ async function loadCookie({ config, step, driver }) {
     const isLocalhost = isLocalOrPrivateNetwork(currentDomain);
 
     if (targetCookie.domain && !isLocalhost) {
-      const normalizedCookieDomain = targetCookie.domain.startsWith(".")
-        ? targetCookie.domain.substring(1)
-        : targetCookie.domain;
-
-      if (normalizedCookieDomain !== currentDomain) {
-        // Only set domain if it's different from current domain and not localhost
-        cookieForDriver.domain = normalizedCookieDomain;
-      }
+      cookieForDriver.domain = targetCookie.domain;
     }
     // For localhost/IP addresses, never set the domain property - let the browser handle it
 

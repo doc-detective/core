@@ -34,9 +34,15 @@ async function saveCookie({ config, step, driver }) {
   let cookieName, filePath, directory, overwrite, domain, variable;
 
   if (typeof step.saveCookie === "string") {
-    // Simple string format - treat as cookie name, save to environment variable
-    cookieName = step.saveCookie;
-    variable = step.saveCookie;
+    if (step.saveCookie.endsWith(".txt")) {
+      // Simple string format - treat as cookie name, save to environment variable
+      cookieName = path.basename(step.saveCookie, ".txt");
+      filePath = step.saveCookie;
+    } else {
+      // Simple string format - treat as cookie name, save to environment variable
+      cookieName = step.saveCookie;
+      variable = cookieName;
+    }
   } else {
     // Object format
     cookieName = step.saveCookie.name;
