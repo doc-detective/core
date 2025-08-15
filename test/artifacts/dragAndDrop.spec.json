@@ -3,28 +3,44 @@
     {
       "steps": [
         {
-          "description": "Navigate to a page with drag and drop elements",
+          "description": "Navigate to drag and drop test page",
           "goTo": "http://localhost:8092/drag-drop-test.html"
         },
         {
-          "description": "Drag Table widget to canvas (simple syntax)",
+          "description": "Wait for page to load",
+          "wait": 2000
+        },
+        {
+          "description": "Drag Table widget to canvas using simple syntax",
           "dragAndDrop": {
             "source": "Table",
             "target": "#canvas"
           }
         },
         {
-          "description": "Drag element with detailed syntax",
+          "description": "Drag Chart widget to specific drop zone using detailed syntax",
           "dragAndDrop": {
             "source": {
               "selector": ".draggable",
-              "elementText": "Draggable Item"
+              "elementText": "Chart"
             },
             "target": {
-              "selector": ".drop-zone"
+              "selector": ".drop-zone[data-drop='zone1']"
             },
-            "duration": 2000
+            "duration": 1500
           }
+        },
+        {
+          "description": "Drag Image widget using selector only",
+          "dragAndDrop": {
+            "source": ".draggable[data-widget='image']",
+            "target": ".drop-zone[data-drop='zone2']",
+            "duration": 500
+          }
+        },
+        {
+          "description": "Take screenshot to verify drag and drop results",
+          "screenshot": "dragAndDrop-result.png"
         }
       ]
     }
