@@ -41,6 +41,32 @@
         {
           "description": "Take screenshot to verify drag and drop results",
           "screenshot": "dragAndDrop-result.png"
+        },
+        {
+          "description": "Test regex matching for source element (simple syntax)",
+          "dragAndDrop": {
+            "source": "/Widget Item.*/",
+            "target": ".drop-zone[data-drop='zone1']"
+          }
+        },
+        {
+          "description": "Test regex matching for source elementText (detailed syntax)",
+          "dragAndDrop": {
+            "source": {
+              "selector": ".draggable",
+              "elementText": "/Widget.*2/"
+            },
+            "target": {
+              "selector": ".drop-zone[data-drop='zone2']"
+            }
+          }
+        },
+        {
+          "description": "Test regex matching for target element (simple syntax)",
+          "dragAndDrop": {
+            "source": "Table",
+            "target": "/Drop Zone.*/"
+          }
         }
       ]
     }
