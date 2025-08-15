@@ -1,0 +1,32 @@
+{
+  "tests": [
+    {
+      "steps": [
+        {
+          "description": "Navigate to a page with drag and drop elements",
+          "goTo": "http://localhost:8092/drag-drop-test.html"
+        },
+        {
+          "description": "Drag Table widget to canvas (simple syntax)",
+          "dragAndDrop": {
+            "source": "Table",
+            "target": "#canvas"
+          }
+        },
+        {
+          "description": "Drag element with detailed syntax",
+          "dragAndDrop": {
+            "source": {
+              "selector": ".draggable",
+              "elementText": "Draggable Item"
+            },
+            "target": {
+              "selector": ".drop-zone"
+            },
+            "duration": 2000
+          }
+        }
+      ]
+    }
+  ]
+}
