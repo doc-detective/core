@@ -44,6 +44,7 @@ describe("Run tests successfully", function () {
     const config_tests = JSON.parse(JSON.stringify(config_base));
     config_tests.runTests.input = inputPath;
     const result = await runTests(config_tests);
+    if (result === null) assert.fail("Expected result to be non-null");
     assert.equal(result.summary.specs.fail, 0);
   });
 
