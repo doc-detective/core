@@ -7,14 +7,10 @@
           "goTo": "http://localhost:8092/drag-drop-test.html"
         },
         {
-          "description": "Wait for page to load",
-          "wait": 2000
-        },
-        {
           "description": "Drag Table widget to canvas using simple syntax",
           "dragAndDrop": {
             "source": "Table",
-            "target": "#canvas"
+            "target": ".drop-zone[data-drop='zone1']"
           }
         },
         {
