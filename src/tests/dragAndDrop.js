@@ -4,6 +4,7 @@ const {
   findElementBySelectorOrText,
   setElementOutputs,
 } = require("./findStrategies");
+const { log } = require("../utils");
 
 exports.dragAndDropElement = dragAndDropElement;
 
@@ -110,182 +111,109 @@ async function dragAndDropElement({ config, step, driver, element }) {
 
   // Store original identifiers for fallback
   let sourceIdentifier, targetIdentifier;
-  
+
   if (typeof step.dragAndDrop.source === "string") {
     sourceIdentifier = step.dragAndDrop.source;
   } else {
-    sourceIdentifier = step.dragAndDrop.source.selector || step.dragAndDrop.source.elementText;
+    sourceIdentifier =
+      step.dragAndDrop.source.selector || step.dragAndDrop.source.elementText;
   }
-  
+
   if (typeof step.dragAndDrop.target === "string") {
     targetIdentifier = step.dragAndDrop.target;
   } else {
-    targetIdentifier = step.dragAndDrop.target.selector || step.dragAndDrop.target.elementText;
+    targetIdentifier =
+      step.dragAndDrop.target.selector || step.dragAndDrop.target.elementText;
   }
 
   try {
     // Check if elements are draggable and try different approaches
-    const sourceIsDraggable = await sourceElement.getAttribute('draggable');
+    const sourceIsDraggable = await sourceElement.getAttribute("draggable");
     const sourceHasDragEvents = await driver.execute((element) => {
-      const el = document.querySelector(`[data-testid="${element}"]`) || 
-                  document.querySelector(element) ||
-                  Array.from(document.querySelectorAll('*')).find(el => el.textContent.trim() === element);
-      return el && (el.draggable === true || el.getAttribute('draggable') === 'true');
+      const el =
+        document.querySelector(`[data-testid="${element}"]`) ||
+        document.querySelector(element) ||
+        Array.from(document.querySelectorAll("*")).find(
+          (el) => el.textContent.trim() === element
+        );
+      return (
+        el && (el.draggable === true || el.getAttribute("draggable") === "true")
+      );
     }, sourceIdentifier);
 
-    console.log(`Source element draggable: ${sourceIsDraggable}, has drag events: ${sourceHasDragEvents}`);
+    log(
+      config,
+      "debug",
+      `Source element draggable: ${sourceIsDraggable}, has drag events: ${sourceHasDragEvents}`
+    );
 
     // If this looks like an HTML5 drag and drop scenario, use HTML5 simulation directly
-    if (sourceIsDraggable === 'true' || sourceHasDragEvents) {
-      console.log("Detected HTML5 drag and drop, using simulation directly");
-      
-      await driver.execute((sourceSelector, targetSelector) => {
-        // Create a helper function to simulate HTML5 drag and drop
-        function simulateHTML5DragDrop(source, target) {
-          // Create and dispatch dragstart event
-          const dragStartEvent = new DragEvent('dragstart', {
-            bubbles: true,
-            cancelable: true,
-            dataTransfer: new DataTransfer()
-          });
-          
-          // Set data transfer data
-          dragStartEvent.dataTransfer.setData('text/plain', source.textContent);
-          if (source.dataset.widget) {
-            dragStartEvent.dataTransfer.setData('widget-type', source.dataset.widget);
-          }
-          
-          source.dispatchEvent(dragStartEvent);
-          
-          // Create and dispatch dragover event on target
-          const dragOverEvent = new DragEvent('dragover', {
-            bubbles: true,
-            cancelable: true,
-            dataTransfer: dragStartEvent.dataTransfer
-          });
-          target.dispatchEvent(dragOverEvent);
-          
-          // Create and dispatch drop event
-          const dropEvent = new DragEvent('drop', {
-            bubbles: true,
-            cancelable: true,
-            dataTransfer: dragStartEvent.dataTransfer
-          });
-          target.dispatchEvent(dropEvent);
-          
-          // Create and dispatch dragend event
-          const dragEndEvent = new DragEvent('dragend', {
-            bubbles: true,
-            cancelable: true,
-            dataTransfer: dragStartEvent.dataTransfer
-          });
-          source.dispatchEvent(dragEndEvent);
-          
-          return true;
-        }
-        
-        // Find elements by the selectors or text content
-        let sourceEl = document.querySelector(sourceSelector);
-        let targetEl = document.querySelector(targetSelector);
-        
-        // If not found by selector, try to find by text content
-        if (!sourceEl) {
-          const allElements = document.querySelectorAll('*');
-          for (let el of allElements) {
-            if (el.textContent.trim() === sourceSelector) {
-              sourceEl = el;
-              break;
-            }
-          }
-        }
-        
-        if (!targetEl) {
-          const allElements = document.querySelectorAll('*');
-          for (let el of allElements) {
-            if (el.textContent.trim() === targetSelector) {
-              targetEl = el;
-              break;
-            }
-          }
-        }
-        
-        if (!sourceEl || !targetEl) {
-          throw new Error(`Could not find source (${sourceSelector}) or target (${targetSelector}) elements`);
-        }
-        
-        return simulateHTML5DragDrop(sourceEl, targetEl);
-      }, sourceIdentifier, targetIdentifier);
-      
-      result.description += " Performed HTML5 drag and drop simulation.";
-    } else {
-      // Try WebDriver.io method first, but verify it actually worked
-      console.log("Trying WebDriver.io drag and drop method");
-      
-      // Get initial state of target to check if drop worked
-      const initialTargetHTML = await targetElement.getHTML();
-      
-      await sourceElement.dragAndDrop(targetElement, { duration });
-      
-      // Check if anything actually changed in the target
-      const finalTargetHTML = await targetElement.getHTML();
-      const targetChanged = initialTargetHTML !== finalTargetHTML;
-      
-      if (!targetChanged) {
-        // WebDriver.io method failed silently, try HTML5 simulation
-        console.log("WebDriver.io drag and drop appeared to fail silently, trying HTML5 simulation");
-        
-        await driver.execute((sourceSelector, targetSelector) => {
+    if (sourceIsDraggable === "true" || sourceHasDragEvents) {
+      log(
+        config,
+        "debug",
+        "Detected HTML5 drag and drop, using simulation directly"
+      );
+
+      await driver.execute(
+        (sourceSelector, targetSelector) => {
           // Create a helper function to simulate HTML5 drag and drop
           function simulateHTML5DragDrop(source, target) {
             // Create and dispatch dragstart event
-            const dragStartEvent = new DragEvent('dragstart', {
+            const dragStartEvent = new DragEvent("dragstart", {
               bubbles: true,
               cancelable: true,
-              dataTransfer: new DataTransfer()
+              dataTransfer: new DataTransfer(),
             });
-            
+
             // Set data transfer data
-            dragStartEvent.dataTransfer.setData('text/plain', source.textContent);
+            dragStartEvent.dataTransfer.setData(
+              "text/plain",
+              source.textContent
+            );
             if (source.dataset.widget) {
-              dragStartEvent.dataTransfer.setData('widget-type', source.dataset.widget);
+              dragStartEvent.dataTransfer.setData(
+                "widget-type",
+                source.dataset.widget
+              );
             }
-            
+
             source.dispatchEvent(dragStartEvent);
-            
+
             // Create and dispatch dragover event on target
-            const dragOverEvent = new DragEvent('dragover', {
+            const dragOverEvent = new DragEvent("dragover", {
               bubbles: true,
               cancelable: true,
-              dataTransfer: dragStartEvent.dataTransfer
+              dataTransfer: dragStartEvent.dataTransfer,
             });
             target.dispatchEvent(dragOverEvent);
-            
+
             // Create and dispatch drop event
-            const dropEvent = new DragEvent('drop', {
+            const dropEvent = new DragEvent("drop", {
               bubbles: true,
               cancelable: true,
-              dataTransfer: dragStartEvent.dataTransfer
+              dataTransfer: dragStartEvent.dataTransfer,
             });
             target.dispatchEvent(dropEvent);
-            
+
             // Create and dispatch dragend event
-            const dragEndEvent = new DragEvent('dragend', {
+            const dragEndEvent = new DragEvent("dragend", {
               bubbles: true,
               cancelable: true,
-              dataTransfer: dragStartEvent.dataTransfer
+              dataTransfer: dragStartEvent.dataTransfer,
             });
             source.dispatchEvent(dragEndEvent);
-            
+
             return true;
           }
-          
+
           // Find elements by the selectors or text content
           let sourceEl = document.querySelector(sourceSelector);
           let targetEl = document.querySelector(targetSelector);
-          
+
           // If not found by selector, try to find by text content
           if (!sourceEl) {
-            const allElements = document.querySelectorAll('*');
+            const allElements = document.querySelectorAll("*");
             for (let el of allElements) {
               if (el.textContent.trim() === sourceSelector) {
                 sourceEl = el;
@@ -293,9 +221,9 @@ async function dragAndDropElement({ config, step, driver, element }) {
               }
             }
           }
-          
+
           if (!targetEl) {
-            const allElements = document.querySelectorAll('*');
+            const allElements = document.querySelectorAll("*");
             for (let el of allElements) {
               if (el.textContent.trim() === targetSelector) {
                 targetEl = el;
@@ -303,17 +231,137 @@ async function dragAndDropElement({ config, step, driver, element }) {
               }
             }
           }
-          
+
           if (!sourceEl || !targetEl) {
-            throw new Error(`Could not find source (${sourceSelector}) or target (${targetSelector}) elements`);
+            throw new Error(
+              `Could not find source (${sourceSelector}) or target (${targetSelector}) elements`
+            );
           }
-          
+
           return simulateHTML5DragDrop(sourceEl, targetEl);
-        }, sourceIdentifier, targetIdentifier);
-        
-        result.description += " Performed HTML5 drag and drop simulation (WebDriver.io failed silently).";
+        },
+        sourceIdentifier,
+        targetIdentifier
+      );
+
+      log(config,"debug", "Performed drag and drop with HTML5 simulation.")
+      result.description += " Performed drag and drop.";
+    } else {
+      // Try WebDriver.io method, but verify it actually worked
+      log(config, "debug", "Trying WebDriver.io drag and drop method");
+
+      // Get initial state of target to check if drop worked
+      const initialTargetHTML = await targetElement.getHTML();
+
+      await sourceElement.dragAndDrop(targetElement, { duration });
+
+      // Check if anything actually changed in the target
+      const finalTargetHTML = await targetElement.getHTML();
+      const targetChanged = initialTargetHTML !== finalTargetHTML;
+
+      if (!targetChanged) {
+        // WebDriver.io method failed silently, try HTML5 simulation
+        log(
+          config,
+          "debug",
+          "WebDriver.io drag and drop appeared to fail silently, trying HTML5 simulation"
+        );
+
+        await driver.execute(
+          (sourceSelector, targetSelector) => {
+            // Create a helper function to simulate HTML5 drag and drop
+            function simulateHTML5DragDrop(source, target) {
+              // Create and dispatch dragstart event
+              const dragStartEvent = new DragEvent("dragstart", {
+                bubbles: true,
+                cancelable: true,
+                dataTransfer: new DataTransfer(),
+              });
+
+              // Set data transfer data
+              dragStartEvent.dataTransfer.setData(
+                "text/plain",
+                source.textContent
+              );
+              if (source.dataset.widget) {
+                dragStartEvent.dataTransfer.setData(
+                  "widget-type",
+                  source.dataset.widget
+                );
+              }
+
+              source.dispatchEvent(dragStartEvent);
+
+              // Create and dispatch dragover event on target
+              const dragOverEvent = new DragEvent("dragover", {
+                bubbles: true,
+                cancelable: true,
+                dataTransfer: dragStartEvent.dataTransfer,
+              });
+              target.dispatchEvent(dragOverEvent);
+
+              // Create and dispatch drop event
+              const dropEvent = new DragEvent("drop", {
+                bubbles: true,
+                cancelable: true,
+                dataTransfer: dragStartEvent.dataTransfer,
+              });
+              target.dispatchEvent(dropEvent);
+
+              // Create and dispatch dragend event
+              const dragEndEvent = new DragEvent("dragend", {
+                bubbles: true,
+                cancelable: true,
+                dataTransfer: dragStartEvent.dataTransfer,
+              });
+              source.dispatchEvent(dragEndEvent);
+
+              return true;
+            }
+
+            // Find elements by the selectors or text content
+            let sourceEl = document.querySelector(sourceSelector);
+            let targetEl = document.querySelector(targetSelector);
+
+            // If not found by selector, try to find by text content
+            if (!sourceEl) {
+              const allElements = document.querySelectorAll("*");
+              for (let el of allElements) {
+                if (el.textContent.trim() === sourceSelector) {
+                  sourceEl = el;
+                  break;
+                }
+              }
+            }
+
+            if (!targetEl) {
+              const allElements = document.querySelectorAll("*");
+              for (let el of allElements) {
+                if (el.textContent.trim() === targetSelector) {
+                  targetEl = el;
+                  break;
+                }
+              }
+            }
+
+            if (!sourceEl || !targetEl) {
+              throw new Error(
+                `Could not find source (${sourceSelector}) or target (${targetSelector}) elements`
+              );
+            }
+
+            return simulateHTML5DragDrop(sourceEl, targetEl);
+          },
+          sourceIdentifier,
+          targetIdentifier
+        );
+
+        log(config, "debug", "Performed drag and drop with HTML5 simulation as fallback after WebDriver.io failed silently.");
+        result.description +=
+          " Performed drag and drop.";
       } else {
-        result.description += " Performed drag and drop with WebDriver.io.";
+        log(config, "debug", "Performed drag and drop with WebDriver.io.");
+        result.description += " Performed drag and drop.";
       }
     }
   } catch (error) {
