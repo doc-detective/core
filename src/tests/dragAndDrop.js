@@ -29,80 +29,52 @@ async function dragAndDropElement({ config, step, driver, element }) {
   // Set default duration if not provided
   const duration = step.dragAndDrop.duration || 1000;
 
-  let sourceElement = null;
-  let targetElement = null;
+  // Helper function to find an element based on specification
+  const findElement = async (elementSpec, elementType) => {
+    if (typeof elementSpec === "string") {
+      // Handle simple string format (text or selector)
+      const { element: foundElement, foundBy } =
+        await findElementBySelectorOrText({
+          string: elementSpec,
+          driver,
+        });
+      if (!foundElement || !foundElement.elementId) {
+        throw new Error(`No ${elementType} elements matched selector or text.`);
+      }
+      return { element: foundElement, foundBy };
+    } else if (typeof elementSpec === "object") {
+      // Handle detailed object format
+      const { element: foundElement, foundBy } =
+        await findElementBySelectorAndText({
+          selector: elementSpec.selector,
+          text: elementSpec.elementText,
+          timeout: elementSpec.timeout || 5000,
+          driver,
+        });
+      if (!foundElement || !foundElement.elementId) {
+        throw new Error(`No ${elementType} elements matched selector and/or text.`);
+      }
+      return { element: foundElement, foundBy };
+    } else {
+      throw new Error(`Invalid ${elementType} element specification.`);
+    }
+  };
 
-  // Find source element
-  if (typeof step.dragAndDrop.source === "string") {
-    // Handle simple string format (text or selector)
-    const { element: foundElement, foundBy } =
-      await findElementBySelectorOrText({
-        string: step.dragAndDrop.source,
-        driver,
-      });
-    if (!foundElement || !foundElement.elementId) {
-      result.status = "FAIL";
-      result.description = "No source elements matched selector or text.";
-      return result;
-    }
-    sourceElement = foundElement;
-    result.description = `Found source element by ${foundBy}.`;
-  } else if (typeof step.dragAndDrop.source === "object") {
-    // Handle detailed object format
-    const { element: foundElement, foundBy } =
-      await findElementBySelectorAndText({
-        selector: step.dragAndDrop.source.selector,
-        text: step.dragAndDrop.source.elementText,
-        timeout: step.dragAndDrop.source.timeout || 5000,
-        driver,
-      });
-    if (!foundElement || !foundElement.elementId) {
-      result.status = "FAIL";
-      result.description = "No source elements matched selector and/or text.";
-      return result;
-    }
-    sourceElement = foundElement;
-    result.description = `Found source element by ${foundBy}.`;
-  } else {
+  let sourceElement, targetElement;
+  
+  try {
+    // Execute both element searches concurrently
+    const [sourceResult, targetResult] = await Promise.all([
+      findElement(step.dragAndDrop.source, "source"),
+      findElement(step.dragAndDrop.target, "target"),
+    ]);
+    
+    sourceElement = sourceResult.element;
+    targetElement = targetResult.element;
+    result.description = `Found source element by ${sourceResult.foundBy}. Found target element by ${targetResult.foundBy}.`;
+  } catch (error) {
     result.status = "FAIL";
-    result.description = "Invalid source element specification.";
-    return result;
-  }
-
-  // Find target element
-  if (typeof step.dragAndDrop.target === "string") {
-    // Handle simple string format (text or selector)
-    const { element: foundElement, foundBy } =
-      await findElementBySelectorOrText({
-        string: step.dragAndDrop.target,
-        driver,
-      });
-    if (!foundElement || !foundElement.elementId) {
-      result.status = "FAIL";
-      result.description = "No target elements matched selector or text.";
-      return result;
-    }
-    targetElement = foundElement;
-    result.description += ` Found target element by ${foundBy}.`;
-  } else if (typeof step.dragAndDrop.target === "object") {
-    // Handle detailed object format
-    const { element: foundElement, foundBy } =
-      await findElementBySelectorAndText({
-        selector: step.dragAndDrop.target.selector,
-        text: step.dragAndDrop.target.elementText,
-        timeout: step.dragAndDrop.target.timeout || 5000,
-        driver,
-      });
-    if (!foundElement || !foundElement.elementId) {
-      result.status = "FAIL";
-      result.description = "No target elements matched selector and/or text.";
-      return result;
-    }
-    targetElement = foundElement;
-    result.description += ` Found target element by ${foundBy}.`;
-  } else {
-    result.status = "FAIL";
-    result.description = "Invalid target element specification.";
+    result.description = error.message;
     return result;
   }
 
