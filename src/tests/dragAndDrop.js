@@ -10,6 +10,87 @@ exports.dragAndDropElement = dragAndDropElement;
 
 // Drag and drop an element from source to target.
 async function dragAndDropElement({ config, step, driver, element }) {
+  async function HTML5DragDrop({ driver, sourceElement, targetElement }) {
+    await driver.execute(
+      (sourceId, targetSelector) => {
+        // Create a helper function to simulate HTML5 drag and drop
+        function simulateHTML5DragDrop(source, target) {
+          // Create and dispatch dragstart event
+          const dragStartEvent = new DragEvent("dragstart", {
+            bubbles: true,
+            cancelable: true,
+            dataTransfer: new DataTransfer(),
+          });
+
+          // Set data transfer data
+          dragStartEvent.dataTransfer.setData("text/plain", source.textContent);
+          if (source.dataset.widget) {
+            dragStartEvent.dataTransfer.setData(
+              "widget-type",
+              source.dataset.widget
+            );
+          }
+
+          source.dispatchEvent(dragStartEvent);
+
+          // Create and dispatch dragover event on target
+          const dragOverEvent = new DragEvent("dragover", {
+            bubbles: true,
+            cancelable: true,
+            dataTransfer: dragStartEvent.dataTransfer,
+          });
+          target.dispatchEvent(dragOverEvent);
+
+          // Create and dispatch drop event
+          const dropEvent = new DragEvent("drop", {
+            bubbles: true,
+            cancelable: true,
+            dataTransfer: dragStartEvent.dataTransfer,
+          });
+          target.dispatchEvent(dropEvent);
+
+          // Create and dispatch dragend event
+          const dragEndEvent = new DragEvent("dragend", {
+            bubbles: true,
+            cancelable: true,
+            dataTransfer: dragStartEvent.dataTransfer,
+          });
+          source.dispatchEvent(dragEndEvent);
+
+          return true;
+        }
+
+        // Find elements by their element IDs using XPath
+        const sourceEl = document.evaluate(
+          sourceId,
+          document,
+          null,
+          XPathResult.FIRST_ORDERED_NODE_TYPE,
+          null
+        ).singleNodeValue;
+        const targetEl = document.evaluate(
+          targetSelector,
+          document,
+          null,
+          XPathResult.FIRST_ORDERED_NODE_TYPE,
+          null
+        ).singleNodeValue;
+
+        if (!sourceEl) {
+          throw new Error(`Could not find source (${sourceId}) element.`);
+        }
+
+        if (!targetEl) {
+          throw new Error(`Could not find target (${targetSelector}) element.`);
+        }
+
+        return simulateHTML5DragDrop(sourceEl, targetEl);
+      },
+      `//*[@id="${sourceElement.elementId}"]`,
+      `//*[@id="${targetElement.elementId}"]`
+    );
+  }
+
   const result = {
     status: "PASS",
     description: "Dragged and dropped element.",
