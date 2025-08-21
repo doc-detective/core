@@ -32,18 +32,11 @@ async function dragAndDropElement({ config, step, driver, element }) {
   // Helper function to find an element based on specification
   const findElement = async (elementSpec, elementType) => {
     if (typeof elementSpec === "string") {
-      // Handle simple string format (text or selector)
-      const { element: foundElement, foundBy } =
-        await findElementBySelectorOrText({
-          string: elementSpec,
-          driver,
-        });
-      if (!foundElement || !foundElement.elementId) {
-        throw new Error(`No ${elementType} elements matched selector or text.`);
-      }
-      return { element: foundElement, foundBy };
-    } else if (typeof elementSpec === "object") {
+      elementSpec = { elementText: elementSpec };
+    }
       // Handle detailed object format
+    if (elementSpec.elementText && elementSpec.selector) {
+      // Find element by selector and text
       const { element: foundElement, foundBy } =
         await findElementBySelectorAndText({
           selector: elementSpec.selector,
@@ -52,11 +45,22 @@ async function dragAndDropElement({ config, step, driver, element }) {
           driver,
         });
       if (!foundElement || !foundElement.elementId) {
-        throw new Error(`No ${elementType} elements matched selector and/or text.`);
+        throw new Error(
+          `No ${elementType} elements matched selector and/or text.`
+        );
       }
       return { element: foundElement, foundBy };
     } else {
-      throw new Error(`Invalid ${elementType} element specification.`);
+      // Fallback to simple selector/text search
+      const { element: foundElement, foundBy } =
+        await findElementBySelectorOrText({
+          string: elementSpec.selector || elementSpec.elementText,
+          driver,
+        });
+      if (!foundElement || !foundElement.elementId) {
+        throw new Error(`No ${elementType} elements matched selector or text.`);
+      }
+      return { element: foundElement, foundBy };
     }
   };
 
@@ -101,17 +105,7 @@ async function dragAndDropElement({ config, step, driver, element }) {
   try {
     // Check if elements are draggable and try different approaches
     const sourceIsDraggable = await sourceElement.getAttribute("draggable");
-    const sourceHasDragEvents = await driver.execute((element) => {
-      const el =
-        document.querySelector(`[data-testid="${element}"]`) ||
-        document.querySelector(element) ||
-        Array.from(document.querySelectorAll("*")).find(
-          (el) => el.textContent.trim() === element
-        );
-      return (
-        el && (el.draggable === true || el.getAttribute("draggable") === "true")
-      );
-    }, sourceIdentifier);
+    const sourceHasDragEvents = await sourceElement.getProperty("draggable");
 
     log(
       config,
