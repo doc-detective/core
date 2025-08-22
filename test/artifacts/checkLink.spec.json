@@ -6,18 +6,18 @@
           "loadVariables": "env"
         },
         {
-          "checkLink": "https://www.google.com"
+          "checkLink": "http://localhost:8092"
         },
         {
           "checkLink": {
-            "url": "https://www.google.com",
+            "url": "http://localhost:8092",
             "statusCodes": "200"
           }
         },
         {
           "checkLink": {
-            "url": "/images",
-            "origin": "https://www.google.com",
+            "url": "/",
+            "origin": "http://localhost:8092",
             "statusCodes": [200]
           }
         },
