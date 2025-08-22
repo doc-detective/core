@@ -5,7 +5,7 @@ const path = require("path");
 const fs = require("fs");
 const PNG = require("pngjs").PNG;
 const sharp = require("sharp");
-const pixelmatch = require("pixelmatch");
+const pixelmatch = require("pixelmatch").default;
 
 exports.saveScreenshot = saveScreenshot;
 
