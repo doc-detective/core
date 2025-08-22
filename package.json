@@ -37,7 +37,7 @@
     "appium-safari-driver": "^3.5.25",
     "axios": "^1.11.0",
     "doc-detective-common": "3.2.0-dev.1",
-    "doc-detective-resolver": "3.2.0-dev.1",
+    "doc-detective-resolver": "3.2.0-dev.2",
     "dotenv": "^17.2.1",
     "geckodriver": "^5.0.0",
     "jq-web": "^0.6.2",
