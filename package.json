@@ -83,6 +83,7 @@
   "devDependencies": {
     "depcheck": "^1.4.7",
     "express": "^5.1.0",
-    "mocha": "^11.7.1"
+    "mocha": "^11.7.1",
+    "semver": "^7.7.2"
   }
 }
