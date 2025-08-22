@@ -35,10 +35,6 @@
           }
         },
         {
-          "description": "Take screenshot to verify drag and drop results",
-          "screenshot": "dragAndDrop-result.png"
-        },
-        {
           "description": "Test regex matching for source element (simple syntax)",
           "dragAndDrop": {
             "source": "/Widget Item.*/",
