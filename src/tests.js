@@ -19,6 +19,7 @@ const { loadCookie } = require("./tests/loadCookie");
 const { httpRequest } = require("./tests/httpRequest");
 const { clickElement } = require("./tests/click");
 const { runCode } = require("./tests/runCode");
+const { dragAndDropElement } = require("./tests/dragAndDrop");
 const path = require("path");
 const { spawn } = require("child_process");
 const uuid = require("uuid");
@@ -34,6 +35,7 @@ exports.runSpecs = runSpecs;
 // Doc Detective actions that require a driver.
 const driverActions = [
   "click",
+  "dragAndDrop",
   "stopRecord",
   "find",
   "goTo",
@@ -665,6 +667,12 @@ async function runStep({
   step = replaceEnvs(step);
   if (typeof step.click !== "undefined") {
     actionResult = await clickElement({
+      config: config,
+      step: step,
+      driver: driver,
+    });
+  } else if (typeof step.dragAndDrop !== "undefined") {
+    actionResult = await dragAndDropElement({
       config: config,
       step: step,
       driver: driver,

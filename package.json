@@ -27,17 +27,17 @@
   },
   "homepage": "https://github.com/doc-detective/doc-detective-core#readme",
   "dependencies": {
-    "@apidevtools/json-schema-ref-parser": "^14.1.1",
+    "@apidevtools/json-schema-ref-parser": "^14.2.0",
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
-    "@puppeteer/browsers": "^2.10.6",
+    "@puppeteer/browsers": "^2.10.7",
     "ajv": "^8.17.1",
     "appium": "^2.19.0",
     "appium-chromium-driver": "1.5.1",
     "appium-geckodriver": "^1.4.3",
     "appium-safari-driver": "^3.5.25",
     "axios": "^1.11.0",
-    "doc-detective-common": "^3.2.0",
-    "doc-detective-resolver": "^3.2.0",
+    "doc-detective-common": "3.2.0-dev.1",
+    "doc-detective-resolver": "3.2.0-dev.2",
     "dotenv": "^17.2.1",
     "geckodriver": "^5.0.0",
     "jq-web": "^0.6.2",
@@ -83,6 +83,7 @@
   "devDependencies": {
     "depcheck": "^1.4.7",
     "express": "^5.1.0",
-    "mocha": "^11.7.1"
+    "mocha": "^11.7.1",
+    "semver": "^7.7.2"
   }
 }

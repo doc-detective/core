@@ -115,7 +115,7 @@ async function findElementBySelectorAndText({
   driver,
 }) {
   let element;
-  if (!selector && !text) {
+  if (!selector || !text) {
     return { element: null, foundBy: null }; // No selector or text
   }
   // Wait  timeout milliseconds
@@ -125,7 +125,7 @@ async function findElementBySelectorAndText({
   let elements = await driver.$$(selector);
   elements = await elements.filter(async (el) => {
     const elementText = await el.getText();
-    if (!(elementText && el.elementId)) {
+    if (!elementText) {
       return false;
     }
     // If text is a regex, match against it
