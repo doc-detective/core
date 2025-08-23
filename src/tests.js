@@ -783,7 +783,7 @@ async function driverStart(capabilities) {
     path: "/",
     capabilities,
     connectionRetryTimeout: 600000, // 10 minutes
-    waitforTimeout: 600000, // 10 minutes
+    waitForTimeout: 600000, // 10 minutes
   });
   driver.state = { url: "", x: null, y: null };
   return driver;

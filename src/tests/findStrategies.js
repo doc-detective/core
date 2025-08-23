@@ -123,19 +123,28 @@ async function findElementBySelectorAndText({
   // Find an element based on a selector and text
   // Elements must match both selector and text
   let elements = await driver.$$(selector);
-  elements = await elements.filter(async (el) => {
+  
+  // Convert to array and filter manually for webdriverio 9.x compatibility
+  const matchingElements = [];
+  for (const el of elements) {
     const elementText = await el.getText();
     if (!(elementText && el.elementId)) {
-      return false;
+      continue;
     }
     // If text is a regex, match against it
     if (text.startsWith("/") && text.endsWith("/")) {
       const pattern = new RegExp(text.slice(1, -1));
-      return pattern.test(elementText);
+      if (pattern.test(elementText)) {
+        matchingElements.push(el);
+      }
+    } else {
+      // If text is a string, match against it
+      if (elementText === text) {
+        matchingElements.push(el);
+      }
     }
-    // If text is a string, match against it
-    return elementText === text;
-  });
+  }
+  elements = matchingElements;
   if (elements.length === 0) {
     return { element: null, foundBy: null }; // No matching elements
   }
