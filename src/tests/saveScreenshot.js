@@ -151,7 +151,10 @@ async function saveScreenshot({ config, step, driver }) {
     // Scroll to element top + padding top
     const x = rect.x - padding.left;
     const y = rect.y - padding.top;
-    await driver.scroll(x, y);
+    // Use scrollIntoView instead of the deprecated scroll method
+    await driver.execute((element, x, y) => {
+      element.scrollIntoView({ behavior: 'instant', block: 'start', inline: 'start' });
+    }, element);
   }
 
   try {
