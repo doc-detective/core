@@ -11,8 +11,14 @@
           "screenshot": true
         },
         {
+          "runShell": "rm screenshot-boolean.png"
+        },
+        {
           "stepId": "screenshot-string",
           "screenshot": "image.png"
+        },
+        {
+          "runShell": "rm image.png"
         },
         {
           "stepId": "screenshot-object-crop-string",
