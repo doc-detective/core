@@ -3,7 +3,7 @@ const { runTests } = require("../src");
 
 async function main() {
   const json = {
-    input: "dev/dev.spec.json",
+    input: "dev/doc-content.dita",
     logLevel: "debug",
     runOn:[{
       platforms: ["linux"],
