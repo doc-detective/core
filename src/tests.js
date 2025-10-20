@@ -537,7 +537,7 @@ async function runSpecs({ resolvedTests }) {
           const stopRecordStep = {
             stopRecord: true,
             description: "Stopping recording",
-            stepId: `${randomUUID()}`,
+            stepId: randomUUID(),
           };
           const stepResult = await runStep({
             config: config,
