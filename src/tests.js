@@ -22,7 +22,7 @@ const { runCode } = require("./tests/runCode");
 const { dragAndDropElement } = require("./tests/dragAndDrop");
 const path = require("path");
 const { spawn } = require("child_process");
-const uuid = require("uuid");
+const { randomUUID } = require("crypto");
 const { setAppiumHome } = require("./appium");
 const { resolveExpression } = require("./expressions");
 const { getEnvironment, getAvailableApps } = require("./config");
@@ -230,7 +230,22 @@ async function allowUnsafeSteps({ config }) {
   else return false;
 }
 
-// Iterate through and execute test specifications and contained tests.
+/**
+ * Orchestrates execution of resolved test specifications and returns a hierarchical run report.
+ *
+ * Executes each spec -> test -> context -> step, conditionally starts Appium and browser drivers,
+ * applies viewport/window sizing, handles unsafe-step policies and recording, aggregates per-step,
+ * per-context, per-test, and per-spec results, and performs resource cleanup.
+ *
+ * @param {Object} resolvedTests - Resolved test bundle containing configuration and specs to run.
+ * @param {Object} resolvedTests.config - Runner configuration used during execution.
+ * @param {Array<Object>} resolvedTests.specs - Array of spec objects to execute.
+ * @returns {Object} A report object summarizing results with structure:
+ *  {
+ *    summary: { specs: {...}, tests: {...}, contexts: {...}, steps: {...} },
+ *    specs: [ { specId, description, contentPath, result, tests: [ { testId, description, contentPath, result, contexts: [ { platform, browser, result, steps: [...] } ] } ] } ]
+ *  }
+ */
 async function runSpecs({ resolvedTests }) {
   const config = resolvedTests.config;
   const specs = resolvedTests.specs;
@@ -458,7 +473,7 @@ async function runSpecs({ resolvedTests }) {
         let stepExecutionFailed = false;
         for (let step of context.steps) {
           // Set step id if not defined
-          if (!step.stepId) step.stepId = `${uuid.v4()}`;
+          if (!step.stepId) step.stepId = randomUUID();
           log(config, "debug", `STEP:\n${JSON.stringify(step, null, 2)}`);
 
 
@@ -537,7 +552,7 @@ async function runSpecs({ resolvedTests }) {
           const stopRecordStep = {
             stopRecord: true,
             description: "Stopping recording",
-            stepId: `${uuid.v4()}`,
+            stepId: randomUUID(),
           };
           const stepResult = await runStep({
             config: config,
