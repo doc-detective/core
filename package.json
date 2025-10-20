@@ -36,8 +36,8 @@
     "appium-geckodriver": "^1.4.3",
     "appium-safari-driver": "^3.5.25",
     "axios": "^1.12.2",
-    "doc-detective-common": "^3.4.0-dita.0",
-    "doc-detective-resolver": "^3.4.0-dita.0",
+    "doc-detective-common": "^3.4.0-dita.0-dev.1",
+    "doc-detective-resolver": "^3.4.0-dita.0-dev.1",
     "dotenv": "^17.2.3",
     "geckodriver": "^5.0.0",
     "jq-web": "^0.6.2",
@@ -47,7 +47,6 @@
     "posthog-node": "^5.10.0",
     "sharp": "^0.34.4",
     "tree-kill": "^1.2.2",
-    "uuid": "^11.1.0",
     "webdriverio": "8.45.0"
   },
   "optionalDependencies": {
@@ -83,7 +82,7 @@
   "devDependencies": {
     "depcheck": "^1.4.7",
     "express": "^5.1.0",
-    "mocha": "^11.7.1",
-    "semver": "^7.7.2"
+    "mocha": "^11.7.4",
+    "semver": "^7.7.3"
   }
 }

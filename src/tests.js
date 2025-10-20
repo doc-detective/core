@@ -22,7 +22,7 @@ const { runCode } = require("./tests/runCode");
 const { dragAndDropElement } = require("./tests/dragAndDrop");
 const path = require("path");
 const { spawn } = require("child_process");
-const uuid = require("uuid");
+const { randomUUID } = require("crypto");
 const { setAppiumHome } = require("./appium");
 const { resolveExpression } = require("./expressions");
 const { getEnvironment, getAvailableApps } = require("./config");
@@ -458,7 +458,7 @@ async function runSpecs({ resolvedTests }) {
         let stepExecutionFailed = false;
         for (let step of context.steps) {
           // Set step id if not defined
-          if (!step.stepId) step.stepId = `${uuid.v4()}`;
+          if (!step.stepId) step.stepId = randomUUID();
           log(config, "debug", `STEP:\n${JSON.stringify(step, null, 2)}`);
 
 
@@ -537,7 +537,7 @@ async function runSpecs({ resolvedTests }) {
           const stopRecordStep = {
             stopRecord: true,
             description: "Stopping recording",
-            stepId: `${uuid.v4()}`,
+            stepId: `${randomUUID()}`,
           };
           const stepResult = await runStep({
             config: config,
