@@ -1,6 +1,8 @@
-const { detectTests, detectAndResolveTests } = require("doc-detective-resolver");
+const {
+  detectAndResolveTests,
+} = require("doc-detective-resolver");
 const { log, cleanTemp } = require("./utils");
-const { runSpecs } = require("./tests");
+const { runSpecs, runViaApi } = require("./tests");
 const { telemetryNotice, sendTelemetry } = require("./telem");
 
 exports.runTests = runTests;
@@ -14,18 +16,37 @@ const supportMessage = `
 ##########################################################################`;
 
 // Run tests defined in specifications and documentation source files.
-async function runTests(config) {
+async function runTests(config, options = {}) {
+  let resolvedTests;
+
+  if (options.resolvedTests) {
+    resolvedTests = options.resolvedTests;
+    config = resolvedTests.config;
+  }
+
   // Telemetry notice
   telemetryNotice(config);
 
-  const resolvedTests = await detectAndResolveTests({ config });
-  if (!resolvedTests || resolvedTests.specs.length === 0) {
-    log(config, "warn", "Couldn't resolve any tests.");
-    return null;
+  if (!resolvedTests) {
+    resolvedTests = await detectAndResolveTests({ config });
+    if (!resolvedTests || resolvedTests.specs.length === 0) {
+      log(config, "warn", "Couldn't resolve any tests.");
+      return null;
+    }
   }
 
-  // Run test specs
-  const results = await runSpecs({ resolvedTests });
+  let results;
+  // If config.docDetectiveApi.key is set, run tests via API instead of locally
+  if (config.docDetectiveApi && config.docDetectiveApi.key) {
+    // Run test specs via API
+    results = await runSpecs({
+      resolvedTests,
+      apiKey: config.docDetectiveApi.key,
+    });
+  } else {
+    // Run test specs locally
+    results = await runSpecs({ resolvedTests });
+  }
   log(config, "info", "RESULTS:");
   log(config, "info", results);
   log(config, "info", "Cleaning up and finishing post-processing.");

@@ -28,6 +28,7 @@ const { resolveExpression } = require("./expressions");
 const { getEnvironment, getAvailableApps } = require("./config");
 
 exports.runSpecs = runSpecs;
+exports.runViaApi = runViaApi;
 // exports.appiumStart = appiumStart;
 // exports.appiumIsReady = appiumIsReady;
 // exports.driverStart = driverStart;
@@ -228,6 +229,11 @@ async function allowUnsafeSteps({ config }) {
   else if (process.env.DOC_DETECTIVE && JSON.parse(process.env.DOC_DETECTIVE).container) return true;
   // If allowUnsafeSteps is not set, return false by default
   else return false;
+}
+
+// Run specifications via API.
+async function runViaApi({ resolvedTests, apiKey }) {
+  
 }
 
 /**
