@@ -18,6 +18,7 @@ const supportMessage = `
 // Run tests defined in specifications and documentation source files.
 async function runTests(config, options = {}) {
   let resolvedTests;
+  let results;
 
   if (options.resolvedTests) {
     resolvedTests = options.resolvedTests;
@@ -35,13 +36,12 @@ async function runTests(config, options = {}) {
     }
   }
 
-  let results;
-  // If config.docDetectiveApi.key is set, run tests via API instead of locally
-  if (config.docDetectiveApi && config.docDetectiveApi.key) {
+  // If config.integrations.docDetectiveApi.apiKey is set, run tests via API instead of locally
+  if (config.integrations && config.integrations.docDetectiveApi && config.integrations.docDetectiveApi.apiKey) {
     // Run test specs via API
-    results = await runSpecs({
+    results = await runViaApi({
       resolvedTests,
-      apiKey: config.docDetectiveApi.key,
+      apiKey: config.integrations.docDetectiveApi.apiKey,
     });
   } else {
     // Run test specs locally

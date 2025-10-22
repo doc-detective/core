@@ -233,7 +233,21 @@ async function allowUnsafeSteps({ config }) {
 
 // Run specifications via API.
 async function runViaApi({ resolvedTests, apiKey }) {
-  
+  const baseUrl = process.env.DOC_DETECTIVE_API_URL || "https://api.doc-detective.com/v1";
+  // Make an API request to create a test run
+  const apiUrl = `${baseUrl}/runs`;
+  const response = await axios.post(
+    apiUrl,
+    resolvedTests,
+    {
+      headers: {
+        "X-API-Key": apiKey,
+        "Content-Type": "application/json"
+      }
+    }
+  );
+
+  return {};
 }
 
 /**

@@ -17,7 +17,12 @@ async function main() {
         name: "firefox",
         headless: false
       }]
-    }]
+    }],
+    integrations: {
+      docDetectiveApi: {
+        apiKey: process.env.KEY
+      }
+    }
   };
   // console.log(json);
   result = await runTests(json);
