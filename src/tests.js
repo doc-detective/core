@@ -363,7 +363,7 @@ async function runSpecs({ resolvedTests }) {
         // Attach OpenAPI definitions to context
         if (config.integrations?.openApi) {
           context.openApi = [
-            ...context.openApi,
+            ...(context.openApi || []),
             ...config.integrations.openApi,
           ];
         }
