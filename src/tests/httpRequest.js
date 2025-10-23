@@ -397,8 +397,10 @@ async function httpRequest({ config, step, openApiDefinitions = [] }) {
       if (result.status != "FAIL") result.status = "PASS";
       result.description += ` Expected response headers were present in actual response headers.`;
     } else {
+      result.status = "FAIL";
       result.description =
         result.description + " " + dataComparison.result.description;
+      return result;
     }
   }
 
