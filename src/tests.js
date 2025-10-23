@@ -55,7 +55,9 @@ function getDriverCapabilities({ runnerDetails, name, options }) {
   // Set Firefox capabilities
   switch (name) {
     case "firefox":
-      firefox = runnerDetails.availableApps.find((app) => app.name === "firefox");
+      firefox = runnerDetails.availableApps.find(
+        (app) => app.name === "firefox"
+      );
       if (!firefox) break;
       // Set args
       // Reference: https://wiki.mozilla.org/Firefox/CommandLineOptions
@@ -83,7 +85,9 @@ function getDriverCapabilities({ runnerDetails, name, options }) {
     case "safari":
       // Set Safari capabilities
       if (runnerDetails.availableApps.find((app) => app.name === "safari")) {
-        safari = runnerDetails.availableApps.find((app) => app.name === "safari");
+        safari = runnerDetails.availableApps.find(
+          (app) => app.name === "safari"
+        );
         if (!safari) break;
         // Set capabilities
         capabilities = {
@@ -182,7 +186,7 @@ function getDefaultBrowser({ runnerDetails }) {
   let browser = {};
   const browserNames = ["firefox", "chrome", "safari"];
   for (const name of browserNames) {
-    if (runnerDetails.availableApps.find(app => app.name === name)) {
+    if (runnerDetails.availableApps.find((app) => app.name === name)) {
       browser = { name };
       break;
     }
@@ -226,28 +230,111 @@ async function allowUnsafeSteps({ config }) {
   // If allowUnsafeSteps is set to false, return false
   else if (config.allowUnsafeSteps === false) return false;
   // if DOC_DETECTIVE.container is set to true, return true
-  else if (process.env.DOC_DETECTIVE && JSON.parse(process.env.DOC_DETECTIVE).container) return true;
+  else if (
+    process.env.DOC_DETECTIVE &&
+    JSON.parse(process.env.DOC_DETECTIVE).container
+  )
+    return true;
   // If allowUnsafeSteps is not set, return false by default
   else return false;
 }
 
 // Run specifications via API.
-async function runViaApi({ resolvedTests, apiKey }) {
-  const baseUrl = process.env.DOC_DETECTIVE_API_URL || "https://api.doc-detective.com/v1";
+async function runViaApi({ resolvedTests, apiKey, config = {} }) {
+  const baseUrl =
+    process.env.DOC_DETECTIVE_API_URL || "https://api.doc-detective.com/v1";
   // Make an API request to create a test run
   const apiUrl = `${baseUrl}/runs`;
-  const response = await axios.post(
-    apiUrl,
-    resolvedTests,
-    {
-      headers: {
-        "X-API-Key": apiKey,
-        "Content-Type": "application/json"
-      }
-    }
-  );
 
-  return {};
+  // Configure axios with proper timeout and connection handling
+  const axiosConfig = {
+    headers: {
+      "X-API-Key": apiKey,
+      "Content-Type": "application/json",
+    },
+    // Prevent connection reuse issues with keep-alive
+    httpAgent: new (require("http").Agent)({ keepAlive: false }),
+    httpsAgent: new (require("https").Agent)({ keepAlive: false }),
+  };
+
+  // Create run
+  let createResponse;
+  try {
+    createResponse = await axios.post(apiUrl, resolvedTests, axiosConfig);
+  } catch (error) {
+    return { status: error.response.status, error: error.response.data.error };
+  }
+  if (createResponse.status !== 201) {
+    return { status: createResponse.status, error: createResponse.data.error };
+  }
+  const runId = createResponse.data.run.runId;
+
+  // TODO: Add file uploads, if any
+
+  // Start run
+  let startResponse;
+  try {
+    startResponse = await axios.post(
+      `${apiUrl}/${runId}/start`,
+      {},
+      axiosConfig
+    );
+  } catch (error) {
+    return { status: error.response.status, error: error.response.data.error };
+  }
+  if (startResponse.status !== 200) {
+    return { status: startResponse.status, error: startResponse.data.error };
+  }
+
+  // Poll for results
+  const pollInterval = 5000; // 5 seconds in milliseconds
+  const pollIntervalVariance = 2000; // +/- 2 seconds
+  const maxWaitTime = (config.apiMaxWaitTime || 600) * 1000; // Default 10 minutes, converted to milliseconds
+  const startTime = Date.now();
+
+  let response;
+  while (true) {
+    // Check if we've exceeded the max wait time
+    if (Date.now() - startTime > maxWaitTime) {
+      return {
+        status: "TIMEOUT",
+        error: `Test execution exceeded maximum wait time of ${
+          maxWaitTime / 1000
+        } seconds`,
+      };
+    }
+
+    // Poll for results
+    try {
+      response = await axios.get(`${apiUrl}/${runId}`, axiosConfig);
+    } catch (error) {
+      return {
+        status: error.response.status,
+        error: error.response.data.error,
+      };
+    }
+
+    if (response.status !== 200) {
+      return { status: response.status, error: response.data.error };
+    }
+
+    // Check if the test run is complete
+    if (response.data.status === "completed") {
+      break;
+    }
+
+    // Wait before polling again (with variance)
+    const variance =
+      Math.random() * pollIntervalVariance * 2 - pollIntervalVariance;
+    const waitTime = pollInterval + variance;
+    await new Promise((resolve) => setTimeout(resolve, waitTime));
+  }
+
+  // TODO: Handle file downloads/placement, if any
+
+  const results = JSON.parse(response.data.report);
+
+  return results;
 }
 
 /**
@@ -400,7 +487,9 @@ async function runSpecs({ resolvedTests }) {
           log(
             config,
             "warning",
-            `Skipping context. The current system doesn't support this context: {"platform": "${context.platform}", "apps": ${JSON.stringify(context.apps)}}`
+            `Skipping context. The current system doesn't support this context: {"platform": "${
+              context.platform
+            }", "apps": ${JSON.stringify(context.apps)}}`
           );
           contextReport = { result: { status: "SKIPPED" }, ...contextReport };
           report.summary.contexts.skipped++;
@@ -496,7 +585,6 @@ async function runSpecs({ resolvedTests }) {
           if (!step.stepId) step.stepId = randomUUID();
           log(config, "debug", `STEP:\n${JSON.stringify(step, null, 2)}`);
 
-
           if (step.unsafe && runnerDetails.allowUnsafeSteps === false) {
             log(
               config,
@@ -507,7 +595,7 @@ async function runSpecs({ resolvedTests }) {
             const stepReport = {
               ...step,
               result: "SKIPPED",
-              resultDescription: "Skipped because unsafe steps aren't allowed."
+              resultDescription: "Skipped because unsafe steps aren't allowed.",
             };
             contextReport.steps.push(stepReport);
             report.summary.steps.skipped++;
@@ -519,7 +607,7 @@ async function runSpecs({ resolvedTests }) {
             const stepReport = {
               ...step,
               result: "SKIPPED",
-              resultDescription: "Skipped due to previous failure in context."
+              resultDescription: "Skipped due to previous failure in context.",
             };
             contextReport.steps.push(stepReport);
             report.summary.steps.skipped++;
@@ -545,7 +633,11 @@ async function runSpecs({ resolvedTests }) {
           log(
             config,
             "debug",
-            `RESULT: ${stepResult.status}\n${JSON.stringify(stepResult, null, 2)}`
+            `RESULT: ${stepResult.status}\n${JSON.stringify(
+              stepResult,
+              null,
+              2
+            )}`
           );
 
           stepResult.result = stepResult.status;
