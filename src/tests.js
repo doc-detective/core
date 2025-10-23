@@ -54,7 +54,9 @@ function getDriverCapabilities({ runnerDetails, name, options }) {
   // Set Firefox capabilities
   switch (name) {
     case "firefox":
-      firefox = runnerDetails.availableApps.find((app) => app.name === "firefox");
+      firefox = runnerDetails.availableApps.find(
+        (app) => app.name === "firefox"
+      );
       if (!firefox) break;
       // Set args
       // Reference: https://wiki.mozilla.org/Firefox/CommandLineOptions
@@ -82,7 +84,9 @@ function getDriverCapabilities({ runnerDetails, name, options }) {
     case "safari":
       // Set Safari capabilities
       if (runnerDetails.availableApps.find((app) => app.name === "safari")) {
-        safari = runnerDetails.availableApps.find((app) => app.name === "safari");
+        safari = runnerDetails.availableApps.find(
+          (app) => app.name === "safari"
+        );
         if (!safari) break;
         // Set capabilities
         capabilities = {
@@ -181,7 +185,7 @@ function getDefaultBrowser({ runnerDetails }) {
   let browser = {};
   const browserNames = ["firefox", "chrome", "safari"];
   for (const name of browserNames) {
-    if (runnerDetails.availableApps.find(app => app.name === name)) {
+    if (runnerDetails.availableApps.find((app) => app.name === name)) {
       browser = { name };
       break;
     }
@@ -225,7 +229,11 @@ async function allowUnsafeSteps({ config }) {
   // If allowUnsafeSteps is set to false, return false
   else if (config.allowUnsafeSteps === false) return false;
   // if DOC_DETECTIVE.container is set to true, return true
-  else if (process.env.DOC_DETECTIVE && JSON.parse(process.env.DOC_DETECTIVE).container) return true;
+  else if (
+    process.env.DOC_DETECTIVE &&
+    JSON.parse(process.env.DOC_DETECTIVE).container
+  )
+    return true;
   // If allowUnsafeSteps is not set, return false by default
   else return false;
 }
@@ -352,6 +360,14 @@ async function runSpecs({ resolvedTests }) {
         if (!context.platform)
           context.platform = runnerDetails.environment.platform;
 
+        // Attach OpenAPI definitions to context
+        if (config.integrations?.openApi) {
+          context.openApi = [
+            ...context.openApi,
+            ...config.integrations.openApi,
+          ];
+        }
+
         // If "browser" isn't defined but is required by the test, set it to the first available browser in the sequence of Firefox, Chrome, Safari
         if (!context.browser && isDriverRequired({ test: context })) {
           context.browser = getDefaultBrowser({ runnerDetails });
@@ -380,7 +396,9 @@ async function runSpecs({ resolvedTests }) {
           log(
             config,
             "warning",
-            `Skipping context. The current system doesn't support this context: {"platform": "${context.platform}", "apps": ${JSON.stringify(context.apps)}}`
+            `Skipping context. The current system doesn't support this context: {"platform": "${
+              context.platform
+            }", "apps": ${JSON.stringify(context.apps)}}`
           );
           contextReport = { result: { status: "SKIPPED" }, ...contextReport };
           report.summary.contexts.skipped++;
@@ -476,7 +494,6 @@ async function runSpecs({ resolvedTests }) {
           if (!step.stepId) step.stepId = randomUUID();
           log(config, "debug", `STEP:\n${JSON.stringify(step, null, 2)}`);
 
-
           if (step.unsafe && runnerDetails.allowUnsafeSteps === false) {
             log(
               config,
@@ -487,7 +504,7 @@ async function runSpecs({ resolvedTests }) {
             const stepReport = {
               ...step,
               result: "SKIPPED",
-              resultDescription: "Skipped because unsafe steps aren't allowed."
+              resultDescription: "Skipped because unsafe steps aren't allowed.",
             };
             contextReport.steps.push(stepReport);
             report.summary.steps.skipped++;
@@ -499,7 +516,7 @@ async function runSpecs({ resolvedTests }) {
             const stepReport = {
               ...step,
               result: "SKIPPED",
-              resultDescription: "Skipped due to previous failure in context."
+              resultDescription: "Skipped due to previous failure in context.",
             };
             contextReport.steps.push(stepReport);
             report.summary.steps.skipped++;
@@ -525,7 +542,11 @@ async function runSpecs({ resolvedTests }) {
           log(
             config,
             "debug",
-            `RESULT: ${stepResult.status}\n${JSON.stringify(stepResult, null, 2)}`
+            `RESULT: ${stepResult.status}\n${JSON.stringify(
+              stepResult,
+              null,
+              2
+            )}`
           );
 
           stepResult.result = stepResult.status;
