@@ -262,7 +262,7 @@ async function runViaApi({ resolvedTests, apiKey, config = {} }) {
   try {
     createResponse = await axios.post(apiUrl, resolvedTests, axiosConfig);
   } catch (error) {
-    return { status: error.response.status, error: error.response.data.error };
+    return { status: error.response?.status, error: error.response?.data?.error };
   }
   if (createResponse.status !== 201) {
     return { status: createResponse.status, error: createResponse.data.error };
@@ -280,7 +280,7 @@ async function runViaApi({ resolvedTests, apiKey, config = {} }) {
       axiosConfig
     );
   } catch (error) {
-    return { status: error.response.status, error: error.response.data.error };
+    return { status: error.response?.status, error: error.response?.data?.error };
   }
   if (startResponse.status !== 200) {
     return { status: startResponse.status, error: startResponse.data.error };
@@ -289,7 +289,7 @@ async function runViaApi({ resolvedTests, apiKey, config = {} }) {
   // Poll for results
   const pollInterval = 5000; // 5 seconds in milliseconds
   const pollIntervalVariance = 2000; // +/- 2 seconds
-  const maxWaitTime = (config.apiMaxWaitTime || 600) * 1000; // Default 10 minutes, converted to milliseconds
+  const maxWaitTime = (config.apiMaxWaitTime || 600) * 1000; // Default 600 seconds (10 minutes), converted to milliseconds
   const startTime = Date.now();
 
   let response;
@@ -297,10 +297,9 @@ async function runViaApi({ resolvedTests, apiKey, config = {} }) {
     // Check if we've exceeded the max wait time
     if (Date.now() - startTime > maxWaitTime) {
       return {
-        status: "TIMEOUT",
-        error: `Test execution exceeded maximum wait time of ${
-          maxWaitTime / 1000
-        } seconds`,
+        status: 408,
+        type: "TIMEOUT",
+        error: `Test execution exceeded maximum wait time of ${maxWaitTime / 1000} seconds`,
       };
     }
 
@@ -309,8 +308,8 @@ async function runViaApi({ resolvedTests, apiKey, config = {} }) {
       response = await axios.get(`${apiUrl}/${runId}`, axiosConfig);
     } catch (error) {
       return {
-        status: error.response.status,
-        error: error.response.data.error,
+        status: error.response?.status,
+        error: error.response?.data?.error,
       };
     }
 
