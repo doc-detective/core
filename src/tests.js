@@ -28,6 +28,7 @@ const { resolveExpression } = require("./expressions");
 const { getEnvironment, getAvailableApps } = require("./config");
 
 exports.runSpecs = runSpecs;
+exports.runViaApi = runViaApi;
 // exports.appiumStart = appiumStart;
 // exports.appiumIsReady = appiumIsReady;
 // exports.driverStart = driverStart;
@@ -236,6 +237,109 @@ async function allowUnsafeSteps({ config }) {
     return true;
   // If allowUnsafeSteps is not set, return false by default
   else return false;
+}
+
+// Run specifications via API.
+async function runViaApi({ resolvedTests, apiKey, config = {} }) {
+  const baseUrl =
+    process.env.DOC_DETECTIVE_API_URL || "https://api.doc-detective.com/v1";
+  // Make an API request to create a test run
+  const apiUrl = `${baseUrl}/runs`;
+
+  // Configure axios with proper timeout and connection handling
+  const axiosConfig = {
+    headers: {
+      "X-API-Key": apiKey,
+      "Content-Type": "application/json",
+    },
+    // Prevent connection reuse issues with keep-alive
+    httpAgent: new (require("http").Agent)({ keepAlive: false }),
+    httpsAgent: new (require("https").Agent)({ keepAlive: false }),
+  };
+
+  // Create run
+  let createResponse;
+  try {
+    createResponse = await axios.post(apiUrl, resolvedTests, axiosConfig);
+  } catch (error) {
+    return { status: error.response?.status, error: error.response?.data?.error };
+  }
+  if (createResponse.status !== 201) {
+    return { status: createResponse.status, error: createResponse.data.error };
+  }
+  const runId = createResponse.data.run.runId;
+
+  // TODO: Add file uploads, if any
+
+  // Start run
+  let startResponse;
+  try {
+    startResponse = await axios.post(
+      `${apiUrl}/${runId}/start`,
+      {},
+      axiosConfig
+    );
+  } catch (error) {
+    return { status: error.response?.status, error: error.response?.data?.error };
+  }
+  if (startResponse.status !== 200) {
+    return { status: startResponse.status, error: startResponse.data.error };
+  }
+
+  // Poll for results
+  const pollInterval = 5000; // 5 seconds in milliseconds
+  const pollIntervalVariance = 2000; // +/- 2 seconds
+  const maxWaitTime = (config.apiMaxWaitTime || 600) * 1000; // Default 600 seconds (10 minutes), converted to milliseconds
+  const startTime = Date.now();
+
+  let response;
+  while (true) {
+    // Check if we've exceeded the max wait time
+    if (Date.now() - startTime > maxWaitTime) {
+      return {
+        status: 408,
+        type: "TIMEOUT",
+        error: `Test execution exceeded maximum wait time of ${maxWaitTime / 1000} seconds`,
+      };
+    }
+
+    // Poll for results
+    try {
+      response = await axios.get(`${apiUrl}/${runId}`, axiosConfig);
+    } catch (error) {
+      return {
+        status: error.response?.status,
+        error: error.response?.data?.error,
+      };
+    }
+
+    if (response.status !== 200) {
+      return { status: response.status, error: response.data.error };
+    }
+
+    // Check if the test run is complete
+    if (response.data.status === "completed") {
+      break;
+    }
+
+    // Wait before polling again (with variance)
+    const variance =
+      Math.random() * pollIntervalVariance * 2 - pollIntervalVariance;
+    const waitTime = pollInterval + variance;
+    await new Promise((resolve) => setTimeout(resolve, waitTime));
+  }
+
+  // TODO: Handle file downloads/placement, if any
+
+  try {
+    const results = JSON.parse(response.data.report);
+    return results;
+  } catch (error) {
+    return {
+      status: "PARSE_ERROR",
+      error: `Failed to parse API response: ${error.message}`,
+    };
+  }
 }
 
 /**
