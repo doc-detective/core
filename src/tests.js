@@ -331,9 +331,15 @@ async function runViaApi({ resolvedTests, apiKey, config = {} }) {
 
   // TODO: Handle file downloads/placement, if any
 
-  const results = JSON.parse(response.data.report);
-
-  return results;
+  try {
+    const results = JSON.parse(response.data.report);
+    return results;
+  } catch (error) {
+    return {
+      status: "PARSE_ERROR",
+      error: `Failed to parse API response: ${error.message}`,
+    };
+  }
 }
 
 /**
