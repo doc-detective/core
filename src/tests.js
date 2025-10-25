@@ -459,6 +459,14 @@ async function runSpecs({ resolvedTests }) {
         if (!context.platform)
           context.platform = runnerDetails.environment.platform;
 
+        // Attach OpenAPI definitions to context
+        if (config.integrations?.openApi) {
+          context.openApi = [
+            ...(context.openApi || []),
+            ...config.integrations.openApi,
+          ];
+        }
+
         // If "browser" isn't defined but is required by the test, set it to the first available browser in the sequence of Firefox, Chrome, Safari
         if (!context.browser && isDriverRequired({ test: context })) {
           context.browser = getDefaultBrowser({ runnerDetails });
