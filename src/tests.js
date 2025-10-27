@@ -479,6 +479,7 @@ async function runSpecs({ resolvedTests }) {
 
         // Set context report
         let contextReport = {
+          contextId: context.contextId || randomUUID(),
           platform: context.platform,
           browser: context.browser,
           steps: [],
