@@ -242,7 +242,7 @@ async function allowUnsafeSteps({ config }) {
 // Run specifications via API.
 async function runViaApi({ resolvedTests, apiKey, config = {} }) {
   const baseUrl =
-    process.env.DOC_DETECTIVE_API_URL || "https://api.doc-detective.com/v1";
+    process.env.DOC_DETECTIVE_API_URL || "https://api.doc-detective.com";
   // Make an API request to create a test run
   const apiUrl = `${baseUrl}/runs`;
 
