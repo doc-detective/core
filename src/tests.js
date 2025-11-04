@@ -505,7 +505,7 @@ async function runSpecs({ resolvedTests }) {
               context.platform
             }", "apps": ${JSON.stringify(context.apps)}}`
           );
-          contextReport = { result: { status: "SKIPPED" }, ...contextReport };
+          contextReport = { result: "SKIPPED", ...contextReport };
           report.summary.contexts.skipped++;
           testReport.contexts.push(contextReport);
           continue;
@@ -563,7 +563,8 @@ async function runSpecs({ resolvedTests }) {
                   " Make sure you've run `safaridriver --enable` in a terminal and enabled 'Allow Remote Automation' in Safari's Develop menu.";
               log(config, "error", errorMessage);
               contextReport = {
-                result: { status: "SKIPPED", description: errorMessage },
+                result: "SKIPPED",
+                resultDescription: errorMessage,
                 ...contextReport,
               };
               report.summary.contexts.skipped++;

@@ -108,3 +108,6 @@ dist
 
 # Browser snapshots
 browser-snapshots
+
+# Test output artifacts
+test/artifacts/output/
