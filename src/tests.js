@@ -418,10 +418,10 @@ async function runSpecs({ resolvedTests }) {
       cwd: path.join(__dirname, ".."),
     });
     appium.stdout.on("data", (data) => {
-      //   console.log(`stdout: ${data}`);
+        // console.log(`stdout: ${data}`);
     });
     appium.stderr.on("data", (data) => {
-      //   console.error(`stderr: ${data}`);
+        // console.error(`stderr: ${data}`);
     });
     await appiumIsReady();
     log(config, "debug", "Appium is ready.");
@@ -917,7 +917,7 @@ async function appiumIsReady() {
     // TODO: Add configurable timeout duration
     await new Promise((resolve) => setTimeout(resolve, 1000));
     try {
-      let resp = await axios.get("http://0.0.0.0:4723/sessions");
+      let resp = await axios.get("http://0.0.0.0:4723/status");
       if (resp.status === 200) isReady = true;
     } catch {}
   }
