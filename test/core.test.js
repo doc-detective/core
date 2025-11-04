@@ -112,9 +112,9 @@ describe("Run tests successfully", function () {
   });
 
   it("Test is marked as skipped when all contexts are skipped", async () => {
-    // On Linux, create a spec with contexts for Windows platform only
-    // On Windows, create a spec with contexts for Linux platform only
-    // On Mac, create a spec with contexts for Windows platform only
+    // Create a spec with a context for a different platform than the current one.
+    // The resolver will generate a context that doesn't match the current platform,
+    // which will cause it to be skipped.
     const currentPlatform = require("os").platform();
     const targetPlatform =
       currentPlatform === "win32" ? "linux" : "windows";
@@ -124,7 +124,7 @@ describe("Run tests successfully", function () {
       contexts: [
         {
           app: { name: "firefox" },
-          platforms: [targetPlatform],
+          platforms: [targetPlatform], // Will be skipped on current platform
         },
       ],
       tests: [
