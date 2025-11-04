@@ -110,4 +110,62 @@ describe("Run tests successfully", function () {
       fs.unlinkSync(tempFilePath);
     }
   });
+
+  it("Test is marked as skipped when all contexts are skipped", async () => {
+    // On Linux, create a spec with contexts for Windows platform only
+    // On Windows, create a spec with contexts for Linux platform only
+    // On Mac, create a spec with contexts for Windows platform only
+    const currentPlatform = require("os").platform();
+    const targetPlatform =
+      currentPlatform === "win32" ? "linux" : "windows";
+
+    const allContextsSkippedTest = {
+      id: "test-all-contexts-skipped",
+      contexts: [
+        {
+          app: { name: "firefox" },
+          platforms: [targetPlatform],
+        },
+      ],
+      tests: [
+        {
+          id: "test-1",
+          steps: [
+            {
+              action: "runShell",
+              command: "echo 'This should not run'",
+            },
+          ],
+        },
+      ],
+    };
+
+    // Write the test to a temporary file
+    const tempFilePath = path.resolve("./test/temp-all-contexts-skipped.json");
+    fs.writeFileSync(
+      tempFilePath,
+      JSON.stringify(allContextsSkippedTest, null, 2)
+    );
+    const config = {
+      input: tempFilePath,
+      logLevel: "silent",
+    };
+    let result;
+    try {
+      result = await runTests(config);
+      // Verify that the test is marked as skipped, not passed
+      assert.equal(result.summary.tests.skipped, 1);
+      assert.equal(result.summary.tests.pass, 0);
+      assert.equal(result.summary.specs.skipped, 1);
+      assert.equal(result.summary.specs.pass, 0);
+      assert.equal(result.summary.contexts.skipped, 1);
+      // Also verify the actual test result
+      assert.equal(result.specs[0].result, "SKIPPED");
+      assert.equal(result.specs[0].tests[0].result, "SKIPPED");
+      assert.equal(result.specs[0].tests[0].contexts[0].result, "SKIPPED");
+    } finally {
+      // Ensure cleanup even on failure
+      fs.unlinkSync(tempFilePath);
+    }
+  });
 });
