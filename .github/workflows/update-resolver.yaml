@@ -23,6 +23,14 @@ jobs:
       with:
         token: ${{ secrets.DD_DEP_UPDATE_TOKEN }}
 
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: package-lock.json
+        registry-url: 'https://registry.npmjs.org/'
+
     - name: Set version variable
       id: version
       run: |
