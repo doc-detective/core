@@ -12,7 +12,7 @@ async function setElementOutputs({ element }) {
 
   const [
     text, html, tag, value, location, size,
-    clickable, enabled, selected, displayed, inViewport,
+    clickable, enabled, selected, displayed, displayedInViewport,
   ] = await Promise.allSettled([
     element.getText(),
     element.getHTML(),
@@ -24,7 +24,7 @@ async function setElementOutputs({ element }) {
     element.isEnabled(),
     element.isSelected(),
     element.isDisplayed(),
-    element.isDisplayedInViewport(),
+    element.isDisplayed({withinViewport: true}),
   ]).then(results =>
     results.map(r => (r.status === 'fulfilled' ? r.value : null))
   );
@@ -40,7 +40,7 @@ async function setElementOutputs({ element }) {
     enabled,
     selected,
     displayed,
-    displayedInViewport: inViewport,
+    displayedInViewport,
   });
 
   return outputs;

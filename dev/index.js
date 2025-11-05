@@ -9,7 +9,7 @@ const { runTests } = require("../src");
  */
 async function main() {
   const json = {
-    input: "dev/doc-content.dita",
+    input: "test/artifacts/cookie-test.spec.json",
     logLevel: "debug",
     runOn:[{
       platforms: ["linux"],

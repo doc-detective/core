@@ -47,7 +47,7 @@
     "posthog-node": "^5.11.0",
     "sharp": "^0.34.4",
     "tree-kill": "^1.2.2",
-    "webdriverio": "8.45.0"
+    "webdriverio": "^9.2.0"
   },
   "optionalDependencies": {
     "@ffmpeg-installer/darwin-arm64": "4.1.5",
