@@ -9,7 +9,7 @@ const { runTests } = require("../src");
  */
 async function main() {
   const json = {
-    input: "test/artifacts/screenshot.spec.json",
+    input: "test/artifacts/cookie-test.spec.json",
     logLevel: "debug",
     runOn:[{
       platforms: ["linux"],

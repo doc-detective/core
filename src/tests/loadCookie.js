@@ -321,7 +321,7 @@ function parseNetscapeCookieFile(content) {
         name: parts[5],
         value: parts[6],
         httpOnly: isHttpOnlyLine || (parts.length > 7 && parts[7] === "TRUE"),
-        sameSite: parts.length > 8 ? parts[8] : "Lax",
+        sameSite: parts.length > 8 ? parts[8] : "lax",
       };
 
       // Add expiry if it's a valid number and greater than current time
