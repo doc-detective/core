@@ -1,7 +1,5 @@
-exports.findElementBySelectorAndText =
-  findElementBySelectorAndText;
-exports.findElementBySelectorOrText =
-  findElementBySelectorOrText;
+exports.findElementBySelectorAndText = findElementBySelectorAndText;
+exports.findElementBySelectorOrText = findElementBySelectorOrText;
 
 // Set element outputs
 exports.setElementOutputs = setElementOutputs;
@@ -11,8 +9,17 @@ async function setElementOutputs({ element }) {
   const outputs = { element: {}, rawElement: element };
 
   const [
-    text, html, tag, value, location, size,
-    clickable, enabled, selected, displayed, inViewport,
+    text,
+    html,
+    tag,
+    value,
+    location,
+    size,
+    clickable,
+    enabled,
+    selected,
+    displayed,
+    inViewport,
   ] = await Promise.allSettled([
     element.getText(),
     element.getHTML(),
@@ -25,8 +32,8 @@ async function setElementOutputs({ element }) {
     element.isSelected(),
     element.isDisplayed(),
     element.isDisplayedInViewport(),
-  ]).then(results =>
-    results.map(r => (r.status === 'fulfilled' ? r.value : null))
+  ]).then((results) =>
+    results.map((r) => (r.status === "fulfilled" ? r.value : null))
   );
 
   Object.assign(outputs.element, {
@@ -80,10 +87,12 @@ async function findElementBySelectorOrText({ string, driver }) {
     await el.waitForExist({ timeout });
     return el;
   });
-  const textPromise = driver.$(`//*[normalize-space(text())="${string}"]`).then(async (el) => {
-    await el.waitForExist({ timeout });
-    return el;
-  });
+  const textPromise = driver
+    .$(`//*[normalize-space(text())="${string}"]`)
+    .then(async (el) => {
+      await el.waitForExist({ timeout });
+      return el;
+    });
   // Wait for both promises to resolve
 
   const results = await Promise.allSettled([selectorPromise, textPromise]);
@@ -115,27 +124,32 @@ async function findElementBySelectorAndText({
   driver,
 }) {
   let element;
+  let elements;
   if (!selector || !text) {
     return { element: null, foundBy: null }; // No selector or text
   }
-  // Wait  timeout milliseconds
-  await driver.pause(timeout);
-  // Find an element based on a selector and text
-  // Elements must match both selector and text
-  let elements = await driver.$$(selector);
-  elements = await elements.filter(async (el) => {
-    const elementText = await el.getText();
-    if (!elementText) {
-      return false;
+  const startTime = Date.now();
+  while (Date.now() - startTime < timeout) {
+    elements = await driver.$$(selector);
+    elements = await elements.filter(async (el) => {
+      const elementText = await el.getText();
+      if (!elementText) {
+        return false;
+      }
+      // If text is a regex, match against it
+      if (text.startsWith("/") && text.endsWith("/")) {
+        const pattern = new RegExp(text.slice(1, -1));
+        return pattern.test(elementText);
+      }
+      // If text is a string, match against it
+      return elementText === text;
+    });
+    if (elements.length > 0) {
+      break;
     }
-    // If text is a regex, match against it
-    if (text.startsWith("/") && text.endsWith("/")) {
-      const pattern = new RegExp(text.slice(1, -1));
-      return pattern.test(elementText);
-    }
-    // If text is a string, match against it
-    return elementText === text;
-  });
+    // Wait 100ms before trying again
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
   if (elements.length === 0) {
     return { element: null, foundBy: null }; // No matching elements
   }
