@@ -149,8 +149,9 @@ async function saveScreenshot({ config, step, driver }) {
     }
 
     // Scroll to element top + padding top
-    const x = rect.x - padding.left;
-    const y = rect.y - padding.top;
+    const scrollX = rect.x - padding.left;
+    const scrollY = rect.y - padding.top;
+    await driver.action("wheel").scroll({ x: scrollX, y: scrollY, duration: 0 });
     await driver.action("wheel").scroll({ x, y, duration: 0 });
   }
 
