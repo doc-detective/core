@@ -12,7 +12,7 @@ async function setElementOutputs({ element }) {
 
   const [
     text, html, tag, value, location, size,
-    clickable, enabled, selected, displayed,
+    clickable, enabled, selected, displayed, displayedInViewport,
   ] = await Promise.allSettled([
     element.getText(),
     element.getHTML(),
@@ -24,41 +24,10 @@ async function setElementOutputs({ element }) {
     element.isEnabled(),
     element.isSelected(),
     element.isDisplayed(),
+    element.isDisplayed({withinViewport: true}),
   ]).then(results =>
     results.map(r => (r.status === 'fulfilled' ? r.value : null))
   );
-
-  // Manually calculate if element is displayed in viewport
-  let inViewport = null;
-  if (location && size) {
-    try {
-      const driver = element.parent;
-      const viewport = await driver.execute(
-        "return { width: window.innerWidth, height: window.innerHeight }",
-        []
-      );
-      const scrollPosition = await driver.execute(
-        "return { x: window.pageXOffset || window.scrollX || 0, y: window.pageYOffset || window.scrollY || 0 }",
-        []
-      );
-      
-      // Calculate if element is within viewport bounds
-      const elementTop = location.y - scrollPosition.y;
-      const elementBottom = elementTop + size.height;
-      const elementLeft = location.x - scrollPosition.x;
-      const elementRight = elementLeft + size.width;
-      
-      inViewport = (
-        elementBottom > 0 &&
-        elementTop < viewport.height &&
-        elementRight > 0 &&
-        elementLeft < viewport.width
-      );
-    } catch (error) {
-      // If calculation fails, set to null
-      inViewport = null;
-    }
-  }
 
   Object.assign(outputs.element, {
     text,
@@ -71,7 +40,7 @@ async function setElementOutputs({ element }) {
     enabled,
     selected,
     displayed,
-    displayedInViewport: inViewport,
+    displayedInViewport,
   });
 
   return outputs;
