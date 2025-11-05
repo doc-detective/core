@@ -167,7 +167,7 @@ async function loadCookie({ config, step, driver }) {
     // Handle sameSite and secure relationship: if sameSite is "none", secure must be true
     const isHttps = currentUrl.startsWith("https://");
 
-    let sameSite = targetCookie.sameSite || "lax"; // Default to "lax" instead of "none"
+    let sameSite = (targetCookie.sameSite || "lax").toLowerCase(); // Normalize to lowercase for BIDI compliance
     let secure = targetCookie.secure || false;
 
     // If sameSite is "none", secure must be true, but only if we're on HTTPS
