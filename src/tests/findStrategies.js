@@ -115,7 +115,7 @@ async function findElementBySelectorAndText({
   driver,
 }) {
   let element;
-  let elements;
+  let elements = [];
   if (!selector || !text) {
     return { element: null, foundBy: null }; // No selector or text
   }
