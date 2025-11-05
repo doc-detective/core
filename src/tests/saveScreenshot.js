@@ -9,6 +9,26 @@ const pixelmatch = require("pixelmatch");
 
 exports.saveScreenshot = saveScreenshot;
 
+/**
+ * Capture a screenshot for the provided step, optionally crop it to a found element,
+ * and handle existing files according to overwrite and maxVariation rules.
+ *
+ * Performs path normalization and defaults, ensures destination directories exist,
+ * can crop by selector/element with padding, compares new screenshots to existing
+ * files using a pixel-diff threshold, and updates or removes files based on the
+ * configured overwrite policy. May populate outputs.element when an element is used.
+ *
+ * @param {Object} options - Call options.
+ * @param {Object} options.config - Runtime configuration (e.g., recording flag, logging).
+ * @param {Object} options.step - Step payload containing `stepId` and `screenshot` options:
+ *   `path` (string), `directory` (string), `crop` (selector|string|object with selector, elementText, timeout, padding),
+ *   `maxVariation` (number), and `overwrite` ("true" | "false" | "aboveVariation").
+ * @param {Object} options.driver - Browser driver exposing screenshot, element, and execute APIs.
+ * @returns {Object} Result object with:
+ *   - status: `"PASS"`, `"FAIL"`, or `"SKIPPED"`.
+ *   - description: human-readable summary of the outcome.
+ *   - outputs: additional data produced by the step (for example, `element` when cropping).
+ */
 async function saveScreenshot({ config, step, driver }) {
   let result = {
     status: "PASS",

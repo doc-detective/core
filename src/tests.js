@@ -47,7 +47,14 @@ const driverActions = [
   "type",
 ];
 
-// Get Appium driver capabilities and apply options.
+/**
+ * Build Appium/WebDriver capabilities for a named browser or device and apply provided options.
+ *
+ * @param {{ runnerDetails: { environment: { platform: string }, availableApps: Array<{ name: string, path?: string, driver?: string }> }, name: string, options?: { headless?: boolean } }} params - Function parameters.
+ * @param {object} params.runnerDetails - Runtime details including `environment.platform` and `availableApps` (list of available apps with at least `name`, and optionally `path` and `driver`).
+ * @param {string} params.name - The browser or app name to build capabilities for (e.g., "firefox", "chrome", "safari").
+ * @param {{ headless?: boolean }} [params.options] - Optional flags affecting capabilities (currently supports `headless`).
+ * @returns {Object} The constructed capabilities object for the requested browser; an empty object if the requested app is not available.
 function getDriverCapabilities({ runnerDetails, name, options }) {
   let capabilities = {};
   let args = [];
@@ -191,7 +198,15 @@ function getDefaultBrowser({ runnerDetails }) {
   return browser;
 }
 
-// Set window size to match target viewport size
+/**
+ * Adjusts the browser window so the page's inner viewport matches the desired size from context.browser.viewport.
+ *
+ * If a width or height is provided on context.browser.viewport, computes the difference between the current
+ * window innerWidth/innerHeight and the desired viewport and resizes the browser window accordingly.
+ *
+ * @param {object} context - Test context containing optional browser.viewport.{width,height}.
+ * @param {object} driver - WebDriver-compatible instance providing `execute`, `getWindowSize`, and `setWindowSize`.
+ */
 async function setViewportSize(context, driver) {
   if (context.browser?.viewport?.width || context.browser?.viewport?.height) {
     // Get viewport size, not window size

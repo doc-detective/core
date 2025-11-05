@@ -6,6 +6,14 @@ exports.findElementBySelectorOrText =
 // Set element outputs
 exports.setElementOutputs = setElementOutputs;
 
+/**
+ * Collects common attributes and state from a DOM element and returns them grouped in an outputs object.
+ *
+ * @param {{ element: object }} param - Object with an element handle to inspect. The element must expose methods such as getText, getHTML, getTagName, getValue, getLocation, getSize, isClickable, isEnabled, isSelected, and isDisplayed.
+ * @returns {{ element: { text: (string|null), html: (string|null), tag: (string|null), value: (string|null), location: (Object|null), size: (Object|null), clickable: (boolean|null), enabled: (boolean|null), selected: (boolean|null), displayed: (boolean|null), displayedInViewport: (boolean|null) }, rawElement: object }} An outputs object containing:
+ *  - element: an object with collected fields (values are the queried results or `null` if retrieval failed),
+ *  - rawElement: the original element handle passed in.
+ */
 async function setElementOutputs({ element }) {
   // Set element in outputs
   const outputs = { element: {}, rawElement: element };

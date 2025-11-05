@@ -285,9 +285,11 @@ function isLocalOrPrivateNetwork(domain) {
 }
 
 /**
- * Parse Netscape cookie file format.
- * @param {string} content - File content.
- * @returns {Array} Array of cookie objects.
+ * Parse Netscape cookie file content into an array of cookie objects.
+ *
+ * The parser ignores comment and empty lines, but treats lines starting with `#HttpOnly_` as cookies and marks them `httpOnly` after removing that prefix. Each parsed line must be a tab-separated record with at least 7 fields (domain, flag, path, secure, expiry, name, value). Optional fields are `httpOnly` (8th) and `sameSite` (9th). If `sameSite` is missing it defaults to `"lax"`. The `expiry` field is included on the resulting cookie only when it is a numeric Unix timestamp greater than the current time; otherwise it is omitted (session cookie).
+ * @param {string} content - Cookie file content in Netscape (tab-separated) format.
+ * @returns {Array<Object>} Array of cookie objects with properties: `domain`, `path`, `secure`, `name`, `value`, `httpOnly`, `sameSite`, and optional `expiry`.
  */
 function parseNetscapeCookieFile(content) {
   const cookies = [];
