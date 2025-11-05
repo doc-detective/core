@@ -67,6 +67,7 @@ function getDriverCapabilities({ runnerDetails, name, options }) {
         platformName: runnerDetails.environment.platform,
         "appium:automationName": "Gecko",
         "appium:newCommandTimeout": 600, // 10 minutes
+        "wdio:enforceWebDriverClassic": true, // BiDi causes minor rendering differences in Firefox (0.06% pixel variation in screenshots)
         browserName: "MozillaFirefox",
         "moz:firefoxOptions": {
           // Reference: https://developer.mozilla.org/en-US/docs/Web/WebDriver/Capabilities/firefoxOptions
