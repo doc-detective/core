@@ -24,7 +24,7 @@ async function setElementOutputs({ element }) {
     element.isEnabled(),
     element.isSelected(),
     element.isDisplayed(),
-    element.isDisplayedInViewport(),
+    element.isDisplayed({ withinViewport: true }),
   ]).then(results =>
     results.map(r => (r.status === 'fulfilled' ? r.value : null))
   );
