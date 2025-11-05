@@ -130,20 +130,23 @@ async function findElementBySelectorAndText({
   }
   const startTime = Date.now();
   while (Date.now() - startTime < timeout) {
-    elements = await driver.$$(selector);
-    elements = await elements.filter(async (el) => {
+    const candidates = await driver.$$(selector);
+    elements = [];
+    for (const el of candidates) {
       const elementText = await el.getText();
       if (!elementText) {
-        return false;
+        continue;
       }
-      // If text is a regex, match against it
       if (text.startsWith("/") && text.endsWith("/")) {
         const pattern = new RegExp(text.slice(1, -1));
-        return pattern.test(elementText);
+        if (!pattern.test(elementText)) {
+          continue;
+        }
+      } else if (elementText !== text) {
+        continue;
       }
-      // If text is a string, match against it
-      return elementText === text;
-    });
+      elements.push(el);
+    }
     if (elements.length > 0) {
       break;
     }
