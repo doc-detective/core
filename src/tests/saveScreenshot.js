@@ -117,9 +117,7 @@ async function saveScreenshot({ config, step, driver }) {
     }
     if (element) result.outputs.element = findResult.outputs.element;
     // Determine if element bounding box + padding is within viewport
-    const { width, height } = await element.getSize();
-    const { x, y } = await element.getLocation();
-    const rect = { x, y, width, height };
+    const rect = { ...(await element.getLocation()), ...(await element.getSize());
     const viewport = await driver.execute(() => {
       return {
         width: window.innerWidth,
@@ -193,9 +191,7 @@ async function saveScreenshot({ config, step, driver }) {
     const pixelDensity = await driver.execute(() => window.devicePixelRatio);
 
     // Get the bounding rectangle of the element
-    const { width, height } = await element.getSize();
-    const { x, y } = await element.getLocation();
-    const rect = { x, y, width, height };
+    const rect = { ...(await element.getLocation()), ...(await element.getSize());
     log(config, "debug", { rect });
 
     // Calculate the padding based on the provided padding values
