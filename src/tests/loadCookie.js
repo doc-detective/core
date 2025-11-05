@@ -164,23 +164,23 @@ async function loadCookie({ config, step, driver }) {
     }
 
     // Prepare cookie for WebDriver
-    // Handle sameSite and secure relationship: if sameSite is "None", secure must be true
+    // Handle sameSite and secure relationship: if sameSite is "none", secure must be true
     const isHttps = currentUrl.startsWith("https://");
 
-    let sameSite = targetCookie.sameSite || "Lax"; // Default to "Lax" instead of "None"
+    let sameSite = targetCookie.sameSite || "lax"; // Default to "lax" instead of "none"
     let secure = targetCookie.secure || false;
 
-    // If sameSite is "None", secure must be true, but only if we're on HTTPS
-    if (sameSite === "None") {
+    // If sameSite is "none", secure must be true, but only if we're on HTTPS
+    if (sameSite === "none") {
       if (isHttps) {
         secure = true;
       } else {
-        // For HTTP, we can't use sameSite: "None", fall back to "Lax"
-        sameSite = "Lax";
+        // For HTTP, we can't use sameSite: "none", fall back to "lax"
+        sameSite = "lax";
         log(
           config,
           "debug",
-          `Changed sameSite from "None" to "Lax" because current URL is HTTP`
+          `Changed sameSite from "none" to "lax" because current URL is HTTP`
         );
       }
     }
