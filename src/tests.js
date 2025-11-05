@@ -214,10 +214,6 @@ async function setViewportSize(context, driver) {
       windowSize.height + deltaHeight
     );
     // Confirm viewport size
-    const finalViewportSize = await driver.execute(
-      "return { width: window.innerWidth, height: window.innerHeight }",
-      []
-    );
   }
 }
 
