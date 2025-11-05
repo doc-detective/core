@@ -117,10 +117,9 @@ async function saveScreenshot({ config, step, driver }) {
     }
     if (element) result.outputs.element = findResult.outputs.element;
     // Determine if element bounding box + padding is within viewport
-    const rect = {
-      ...(await element.getSize()),
-      ...(await element.getLocation()),
-    };
+    const { width, height } = await element.getSize();
+    const { x, y } = await element.getLocation();
+    const rect = { x, y, width, height };
     const viewport = await driver.execute(() => {
       return {
         width: window.innerWidth,
