@@ -94,6 +94,7 @@ function getDriverCapabilities({ runnerDetails, name, options }) {
           platformName: "Mac",
           "appium:automationName": "Safari",
           "appium:newCommandTimeout": 600, // 10 minutes
+          "wdio:enforceWebDriverClassic": true, // BiDi protocol causes mouse wheel actions to hang
           browserName: "Safari",
         };
       }
@@ -117,6 +118,7 @@ function getDriverCapabilities({ runnerDetails, name, options }) {
           "appium:newCommandTimeout": 600, // 10 minutes
           "appium:executable": chromium.driver,
           browserName: "chrome",
+          "wdio:enforceWebDriverClassic": true, // BiDi protocol causes mouse wheel actions to hang
           "goog:chromeOptions": {
             // Reference: https://chromedriver.chromium.org/capabilities#h.p_ID_102
             args,
