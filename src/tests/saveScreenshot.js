@@ -150,7 +150,6 @@ async function saveScreenshot({ config, step, driver }) {
     const scrollX = rect.x - padding.left;
     const scrollY = rect.y - padding.top;
     await driver.action("wheel").scroll({ x: scrollX, y: scrollY, duration: 0 });
-    await driver.action("wheel").scroll({ x, y, duration: 0 });
   }
 
   try {
