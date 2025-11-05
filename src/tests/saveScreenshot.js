@@ -192,10 +192,9 @@ async function saveScreenshot({ config, step, driver }) {
     const pixelDensity = await driver.execute(() => window.devicePixelRatio);
 
     // Get the bounding rectangle of the element
-    const rect = {
-      ...(await element.getSize()),
-      ...(await element.getLocation()),
-    };
+    const { width, height } = await element.getSize();
+    const { x, y } = await element.getLocation();
+    const rect = { x, y, width, height };
     log(config, "debug", { rect });
 
     // Calculate the padding based on the provided padding values
