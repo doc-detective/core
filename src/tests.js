@@ -67,7 +67,6 @@ function getDriverCapabilities({ runnerDetails, name, options }) {
         platformName: runnerDetails.environment.platform,
         "appium:automationName": "Gecko",
         "appium:newCommandTimeout": 600, // 10 minutes
-        "wdio:enforceWebDriverClassic": true,
         browserName: "MozillaFirefox",
         "moz:firefoxOptions": {
           // Reference: https://developer.mozilla.org/en-US/docs/Web/WebDriver/Capabilities/firefoxOptions
@@ -94,7 +93,6 @@ function getDriverCapabilities({ runnerDetails, name, options }) {
           platformName: "Mac",
           "appium:automationName": "Safari",
           "appium:newCommandTimeout": 600, // 10 minutes
-          "wdio:enforceWebDriverClassic": true,
           browserName: "Safari",
         };
       }
@@ -118,7 +116,6 @@ function getDriverCapabilities({ runnerDetails, name, options }) {
           "appium:newCommandTimeout": 600, // 10 minutes
           "appium:executable": chromium.driver,
           browserName: "chrome",
-          "wdio:enforceWebDriverClassic": true,
           "goog:chromeOptions": {
             // Reference: https://chromedriver.chromium.org/capabilities#h.p_ID_102
             args,
@@ -198,7 +195,7 @@ function getDefaultBrowser({ runnerDetails }) {
 async function setViewportSize(context, driver) {
   if (context.browser?.viewport?.width || context.browser?.viewport?.height) {
     // Get viewport size, not window size
-    const viewportSize = await driver.executeScript(
+    const viewportSize = await driver.execute(
       "return { width: window.innerWidth, height: window.innerHeight }",
       []
     );
@@ -217,10 +214,6 @@ async function setViewportSize(context, driver) {
       windowSize.height + deltaHeight
     );
     // Confirm viewport size
-    const finalViewportSize = await driver.executeScript(
-      "return { width: window.innerWidth, height: window.innerHeight }",
-      []
-    );
   }
 }
 

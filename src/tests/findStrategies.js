@@ -9,17 +9,8 @@ async function setElementOutputs({ element }) {
   const outputs = { element: {}, rawElement: element };
 
   const [
-    text,
-    html,
-    tag,
-    value,
-    location,
-    size,
-    clickable,
-    enabled,
-    selected,
-    displayed,
-    inViewport,
+    text, html, tag, value, location, size,
+    clickable, enabled, selected, displayed, displayedInViewport,
   ] = await Promise.allSettled([
     element.getText(),
     element.getHTML(),
@@ -31,9 +22,9 @@ async function setElementOutputs({ element }) {
     element.isEnabled(),
     element.isSelected(),
     element.isDisplayed(),
-    element.isDisplayedInViewport(),
-  ]).then((results) =>
-    results.map((r) => (r.status === "fulfilled" ? r.value : null))
+    element.isDisplayed({withinViewport: true}),
+  ]).then(results =>
+    results.map(r => (r.status === 'fulfilled' ? r.value : null))
   );
 
   Object.assign(outputs.element, {
@@ -47,7 +38,7 @@ async function setElementOutputs({ element }) {
     enabled,
     selected,
     displayed,
-    displayedInViewport: inViewport,
+    displayedInViewport,
   });
 
   return outputs;
