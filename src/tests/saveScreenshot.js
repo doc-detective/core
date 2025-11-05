@@ -117,9 +117,10 @@ async function saveScreenshot({ config, step, driver }) {
     }
     if (element) result.outputs.element = findResult.outputs.element;
     // Determine if element bounding box + padding is within viewport
-    const rect = await driver.execute((el) => {
-      return el.getBoundingClientRect();
-    }, element);
+    const rect = {
+      ...(await element.getSize()),
+      ...(await element.getLocation()),
+    };
     const viewport = await driver.execute(() => {
       return {
         width: window.innerWidth,
@@ -151,7 +152,7 @@ async function saveScreenshot({ config, step, driver }) {
     // Scroll to element top + padding top
     const x = rect.x - padding.left;
     const y = rect.y - padding.top;
-    await driver.scroll(x, y);
+    await driver.action("wheel").scroll({ x, y, duration: 0 });
   }
 
   try {
@@ -192,9 +193,10 @@ async function saveScreenshot({ config, step, driver }) {
     const pixelDensity = await driver.execute(() => window.devicePixelRatio);
 
     // Get the bounding rectangle of the element
-    const rect = await driver.execute((el) => {
-      return el.getBoundingClientRect();
-    }, element);
+    const rect = {
+      ...(await element.getSize()),
+      ...(await element.getLocation()),
+    };
     log(config, "debug", { rect });
 
     // Calculate the padding based on the provided padding values
