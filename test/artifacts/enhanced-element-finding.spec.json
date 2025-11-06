@@ -154,7 +154,7 @@
       ]
     },
     {
-      "id": "elementAltText-exact",
+      "id": "elementAria-exact",
       "steps": [
         {
           "action": "goTo",
@@ -162,13 +162,13 @@
         },
         {
           "action": "find",
-          "selector": "img",
-          "elementAltText": "Company logo"
+          "selector": "button",
+          "elementAria": "Close dialog"
         }
       ]
     },
     {
-      "id": "elementAltText-regex",
+      "id": "elementAria-regex",
       "steps": [
         {
           "action": "goTo",
@@ -176,8 +176,98 @@
         },
         {
           "action": "find",
-          "selector": "img",
-          "elementAltText": "/.*logo$/"
+          "elementAria": "/Save.*button/"
+        }
+      ]
+    },
+    {
+      "id": "elementAria-text-content",
+      "steps": [
+        {
+          "action": "goTo",
+          "url": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "action": "find",
+          "elementAria": "Cancel Operation"
+        }
+      ]
+    },
+    {
+      "id": "string-shorthand-precedence-selector",
+      "steps": [
+        {
+          "action": "goTo",
+          "url": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "action": "find",
+          "find": "#submit-button"
+        }
+      ]
+    },
+    {
+      "id": "string-shorthand-precedence-text",
+      "steps": [
+        {
+          "action": "goTo",
+          "url": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "action": "find",
+          "find": "Submit by ID"
+        }
+      ]
+    },
+    {
+      "id": "string-shorthand-precedence-aria",
+      "steps": [
+        {
+          "action": "goTo",
+          "url": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "action": "find",
+          "find": "Close dialog"
+        }
+      ]
+    },
+    {
+      "id": "string-shorthand-precedence-id",
+      "steps": [
+        {
+          "action": "goTo",
+          "url": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "action": "find",
+          "find": "submit-button"
+        }
+      ]
+    },
+    {
+      "id": "string-shorthand-precedence-testid",
+      "steps": [
+        {
+          "action": "goTo",
+          "url": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "action": "find",
+          "find": "login-form-submit"
+        }
+      ]
+    },
+    {
+      "id": "string-shorthand-regex",
+      "steps": [
+        {
+          "action": "goTo",
+          "url": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "action": "find",
+          "find": "/submit-.+/"
         }
       ]
     },
