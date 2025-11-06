@@ -226,151 +226,176 @@ async function findElementByCriteria({
     };
   }
 
-  // Wait for the timeout duration
-  await driver.pause(timeout);
-
-  // Start with all elements or narrow by selector/ID first for performance
-  let candidates;
-  const criteriaUsed = [];
-
-  if (elementId) {
-    // ID is typically unique, start with this
-    const idPattern = isRegexPattern(elementId) 
-      ? new RegExp(elementId.slice(1, -1))
-      : null;
-    
-    if (idPattern) {
-      // For regex ID, we need to get all elements and filter
-      candidates = await driver.$$('//*[@id]');
-      const filtered = [];
-      for (const el of candidates) {
-        const id = await el.getAttribute('id');
-        if (id && idPattern.test(id)) {
-          filtered.push(el);
-        }
-      }
-      candidates = filtered;
-    } else {
-      // Exact ID match - use ID selector directly
-      const element = await driver.$(`#${elementId.replace(/([\\!"#$%&'()*+,./:;<=>?@[\]^`{|}~])/g, '\\$1')}`);
-      candidates = element.elementId ? [element] : [];
-    }
-    criteriaUsed.push('elementId');
-  } else if (selector) {
-    candidates = await driver.$$(selector);
-    criteriaUsed.push('selector');
-  } else if (elementTestId) {
-    // Test ID as starting point
-    const testIdPattern = isRegexPattern(elementTestId)
-      ? new RegExp(elementTestId.slice(1, -1))
-      : null;
-    
-    if (testIdPattern) {
-      candidates = await driver.$$('//*[@data-testid]');
-      const filtered = [];
-      for (const el of candidates) {
-        const testId = await el.getAttribute('data-testid');
-        if (testId && testIdPattern.test(testId)) {
-          filtered.push(el);
-        }
-      }
-      candidates = filtered;
-    } else {
-      candidates = await driver.$$(`[data-testid="${elementTestId}"]`);
-    }
-    criteriaUsed.push('elementTestId');
-  } else {
-    // No specific selector, get all elements
-    candidates = await driver.$$('//*');
-  }
-
-  // Filter candidates by all criteria
-  const matchedElements = [];
+  const startTime = Date.now();
+  const pollingInterval = 100; // Check every 100ms
   
-  for (const element of candidates) {
-    if (!element.elementId) continue;
+  // Poll for elements until timeout
+  while (Date.now() - startTime < timeout) {
+    let candidates;
+    const criteriaUsed = [];
 
-    let matches = true;
-
-    // Check elementText
-    if (elementText && matches) {
-      const text = await element.getText();
-      if (!text || !matchesPattern(text, elementText)) {
-        matches = false;
-      } else {
-        if (!criteriaUsed.includes('elementText')) criteriaUsed.push('elementText');
-      }
-    }
-
-    // Check elementId (if not already used for initial selection)
-    if (elementId && !criteriaUsed.includes('elementId') && matches) {
-      const id = await element.getAttribute('id');
-      if (!id || !matchesPattern(id, elementId)) {
-        matches = false;
-      } else {
-        criteriaUsed.push('elementId');
-      }
-    }
-
-    // Check elementTestId (if not already used)
-    if (elementTestId && !criteriaUsed.includes('elementTestId') && matches) {
-      const testId = await element.getAttribute('data-testid');
-      if (!testId || !matchesPattern(testId, elementTestId)) {
-        matches = false;
-      } else {
-        criteriaUsed.push('elementTestId');
-      }
-    }
-
-    // Check elementClass
-    if (elementClass && matches) {
-      const classes = Array.isArray(elementClass) ? elementClass : [elementClass];
-      if (classes.length > 0) {
-        const hasClasses = await hasAllClasses(element, classes);
-        if (!hasClasses) {
-          matches = false;
+    try {
+      if (elementId) {
+        // ID is typically unique, start with this
+        const idPattern = isRegexPattern(elementId) 
+          ? new RegExp(elementId.slice(1, -1))
+          : null;
+        
+        if (idPattern) {
+          // For regex ID, we need to get all elements and filter
+          candidates = await driver.$$('//*[@id]');
+          const filtered = [];
+          for (const el of candidates) {
+            const id = await el.getAttribute('id');
+            if (id && idPattern.test(id)) {
+              filtered.push(el);
+            }
+          }
+          candidates = filtered;
         } else {
-          if (!criteriaUsed.includes('elementClass')) criteriaUsed.push('elementClass');
+          // Exact ID match - use XPath which is more reliable than CSS for IDs with special chars
+          candidates = await driver.$$(`//*[@id="${elementId}"]`);
+        }
+        criteriaUsed.push('elementId');
+      } else if (selector) {
+        candidates = await driver.$$(selector);
+        criteriaUsed.push('selector');
+      } else if (elementTestId) {
+        // Test ID as starting point
+        const testIdPattern = isRegexPattern(elementTestId)
+          ? new RegExp(elementTestId.slice(1, -1))
+          : null;
+        
+        if (testIdPattern) {
+          candidates = await driver.$$('//*[@data-testid]');
+          const filtered = [];
+          for (const el of candidates) {
+            const testId = await el.getAttribute('data-testid');
+            if (testId && testIdPattern.test(testId)) {
+              filtered.push(el);
+            }
+          }
+          candidates = filtered;
+        } else {
+          candidates = await driver.$$(`//*[@data-testid="${elementTestId}"]`);
+        }
+        criteriaUsed.push('elementTestId');
+      } else {
+        // No specific selector, get all elements
+        candidates = await driver.$$('//*');
+      }
+
+      // Filter candidates by all criteria
+      const matchedElements = [];
+      
+      for (const element of candidates) {
+        // Check if element is valid and exists in DOM
+        try {
+          await element.getTagName(); // This will throw if element doesn't exist
+        } catch {
+          continue; // Element doesn't exist, skip it
+        }
+
+        let matches = true;
+
+        // Check elementText
+        if (elementText && matches) {
+          const text = await element.getText();
+          if (!text || !matchesPattern(text, elementText)) {
+            matches = false;
+          } else {
+            if (!criteriaUsed.includes('elementText')) criteriaUsed.push('elementText');
+          }
+        }
+
+        // Check elementId (if not already used for initial selection)
+        if (elementId && !criteriaUsed.includes('elementId') && matches) {
+          const id = await element.getAttribute('id');
+          if (!id || !matchesPattern(id, elementId)) {
+            matches = false;
+          } else {
+            criteriaUsed.push('elementId');
+          }
+        }
+
+        // Check elementTestId (if not already used)
+        if (elementTestId && !criteriaUsed.includes('elementTestId') && matches) {
+          const testId = await element.getAttribute('data-testid');
+          if (!testId || !matchesPattern(testId, elementTestId)) {
+            matches = false;
+          } else {
+            criteriaUsed.push('elementTestId');
+          }
+        }
+
+        // Check elementClass
+        if (elementClass && matches) {
+          const classes = Array.isArray(elementClass) ? elementClass : [elementClass];
+          if (classes.length > 0) {
+            const hasClasses = await hasAllClasses(element, classes);
+            if (!hasClasses) {
+              matches = false;
+            } else {
+              if (!criteriaUsed.includes('elementClass')) criteriaUsed.push('elementClass');
+            }
+          }
+        }
+
+        // Check elementAttribute
+        if (elementAttribute && matches) {
+          const matchesAttrs = await matchesAttributes(element, elementAttribute);
+          if (!matchesAttrs) {
+            matches = false;
+          } else {
+            if (!criteriaUsed.includes('elementAttribute')) criteriaUsed.push('elementAttribute');
+          }
+        }
+
+        // Check elementAltText
+        if (elementAltText && matches) {
+          const altText = await element.getAttribute('alt');
+          if (!altText || !matchesPattern(altText, elementAltText)) {
+            matches = false;
+          } else {
+            if (!criteriaUsed.includes('elementAltText')) criteriaUsed.push('elementAltText');
+          }
+        }
+
+        if (matches) {
+          matchedElements.push(element);
         }
       }
-    }
 
-    // Check elementAttribute
-    if (elementAttribute && matches) {
-      const matchesAttrs = await matchesAttributes(element, elementAttribute);
-      if (!matchesAttrs) {
-        matches = false;
-      } else {
-        if (!criteriaUsed.includes('elementAttribute')) criteriaUsed.push('elementAttribute');
+      if (matchedElements.length > 0) {
+        // Return first matching element
+        return { 
+          element: matchedElements[0], 
+          foundBy: criteriaUsed.join(' and ')
+        };
       }
+    } catch (error) {
+      // Continue polling on errors
     }
 
-    // Check elementAltText
-    if (elementAltText && matches) {
-      const altText = await element.getAttribute('alt');
-      if (!altText || !matchesPattern(altText, elementAltText)) {
-        matches = false;
-      } else {
-        if (!criteriaUsed.includes('elementAltText')) criteriaUsed.push('elementAltText');
-      }
-    }
-
-    if (matches) {
-      matchedElements.push(element);
+    // Wait before next poll
+    if (Date.now() - startTime < timeout) {
+      await driver.pause(pollingInterval);
     }
   }
 
-  if (matchedElements.length === 0) {
-    return { 
-      element: null, 
-      foundBy: null,
-      error: `No element found matching all specified criteria: ${criteriaUsed.join(', ')}`
-    };
-  }
-
-  // Return first matching element
+  // Timeout reached with no matches
+  const criteriaList = [];
+  if (selector) criteriaList.push('selector');
+  if (elementText) criteriaList.push('elementText');
+  if (elementId) criteriaList.push('elementId');
+  if (elementTestId) criteriaList.push('elementTestId');
+  if (elementClass) criteriaList.push('elementClass');
+  if (elementAttribute) criteriaList.push('elementAttribute');
+  if (elementAltText) criteriaList.push('elementAltText');
+  
   return { 
-    element: matchedElements[0], 
-    foundBy: criteriaUsed.join(' and ')
+    element: null, 
+    foundBy: null,
+    error: `No element found matching all specified criteria: ${criteriaList.join(', ')}`
   };
 }
