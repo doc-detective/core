@@ -1,7 +1,5 @@
-exports.findElementBySelectorAndText =
-  findElementBySelectorAndText;
-exports.findElementBySelectorOrText =
-  findElementBySelectorOrText;
+exports.findElementBySelectorAndText = findElementBySelectorAndText;
+exports.findElementBySelectorOrText = findElementBySelectorOrText;
 
 // Set element outputs
 exports.setElementOutputs = setElementOutputs;
@@ -80,10 +78,12 @@ async function findElementBySelectorOrText({ string, driver }) {
     await el.waitForExist({ timeout });
     return el;
   });
-  const textPromise = driver.$(`//*[normalize-space(text())="${string}"]`).then(async (el) => {
-    await el.waitForExist({ timeout });
-    return el;
-  });
+  const textPromise = driver
+    .$(`//*[normalize-space(text())="${string}"]`)
+    .then(async (el) => {
+      await el.waitForExist({ timeout });
+      return el;
+    });
   // Wait for both promises to resolve
 
   const results = await Promise.allSettled([selectorPromise, textPromise]);
@@ -115,27 +115,35 @@ async function findElementBySelectorAndText({
   driver,
 }) {
   let element;
+  let elements = [];
   if (!selector || !text) {
     return { element: null, foundBy: null }; // No selector or text
   }
-  // Wait  timeout milliseconds
-  await driver.pause(timeout);
-  // Find an element based on a selector and text
-  // Elements must match both selector and text
-  let elements = await driver.$$(selector);
-  elements = await elements.filter(async (el) => {
-    const elementText = await el.getText();
-    if (!elementText) {
-      return false;
+  const startTime = Date.now();
+  while (Date.now() - startTime < timeout) {
+    const candidates = await driver.$$(selector);
+    elements = [];
+    for (const el of candidates) {
+      const elementText = await el.getText();
+      if (!elementText) {
+        continue;
+      }
+      if (text.startsWith("/") && text.endsWith("/")) {
+        const pattern = new RegExp(text.slice(1, -1));
+        if (!pattern.test(elementText)) {
+          continue;
+        }
+      } else if (elementText !== text) {
+        continue;
+      }
+      elements.push(el);
     }
-    // If text is a regex, match against it
-    if (text.startsWith("/") && text.endsWith("/")) {
-      const pattern = new RegExp(text.slice(1, -1));
-      return pattern.test(elementText);
+    if (elements.length > 0) {
+      break;
     }
-    // If text is a string, match against it
-    return elementText === text;
-  });
+    // Wait 100ms before trying again
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
   if (elements.length === 0) {
     return { element: null, foundBy: null }; // No matching elements
   }
