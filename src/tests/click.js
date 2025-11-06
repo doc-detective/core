@@ -2,6 +2,7 @@ const { validate } = require("doc-detective-common");
 const {
   findElementBySelectorAndText,
   findElementBySelectorOrText,
+  findElementByCriteria,
   setElementOutputs,
 } = require("./findStrategies");
 
@@ -63,20 +64,49 @@ async function clickElement({ config, step, driver, element }) {
         return result;
       }
     } else {
-      const { element: foundElement, foundBy } =
-        await findElementBySelectorAndText({
+      // Check if any of the new criteria are being used
+      const hasNewCriteria = step.click.elementId || step.click.elementTestId || 
+                             step.click.elementClass || step.click.elementAttribute || 
+                             step.click.elementAltText;
+      
+      if (hasNewCriteria || (step.click.selector && step.click.elementText)) {
+        // Use the new comprehensive finding function
+        const { element: foundElement, foundBy, error } = await findElementByCriteria({
           selector: step.click.selector,
-          text: step.click.elementText,
+          elementText: step.click.elementText,
+          elementId: step.click.elementId,
+          elementTestId: step.click.elementTestId,
+          elementClass: step.click.elementClass,
+          elementAttribute: step.click.elementAttribute,
+          elementAltText: step.click.elementAltText,
           timeout: step.click.timeout || 5000,
           driver,
         });
-      if (!foundElement) {
-        result.status = "FAIL";
-        result.description = `Couldn't find element.`;
-        return result;
+        
+        if (!foundElement) {
+          result.status = "FAIL";
+          result.description = error || `Couldn't find element.`;
+          return result;
+        }
+        element = foundElement;
+        result.description += ` Found element by ${foundBy}.`;
+      } else {
+        // Use legacy logic for backward compatibility
+        const { element: foundElement, foundBy } =
+          await findElementBySelectorAndText({
+            selector: step.click.selector,
+            text: step.click.elementText,
+            timeout: step.click.timeout || 5000,
+            driver,
+          });
+        if (!foundElement) {
+          result.status = "FAIL";
+          result.description = `Couldn't find element.`;
+          return result;
+        }
+        element = foundElement;
+        result.description += ` Found element by ${foundBy}.`;
       }
-      element = foundElement;
-      result.description += ` Found element by ${foundBy}.`;
     }
   }
   result.outputs = await setElementOutputs({ element });

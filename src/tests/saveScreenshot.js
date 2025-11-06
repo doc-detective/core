@@ -97,6 +97,11 @@ async function saveScreenshot({ config, step, driver }) {
         find: {
           selector: step.screenshot.crop?.selector,
           elementText: step.screenshot.crop?.elementText,
+          elementId: step.screenshot.crop?.elementId,
+          elementTestId: step.screenshot.crop?.elementTestId,
+          elementClass: step.screenshot.crop?.elementClass,
+          elementAttribute: step.screenshot.crop?.elementAttribute,
+          elementAltText: step.screenshot.crop?.elementAltText,
           timeout: step.screenshot.crop?.timeout,
         },
       };

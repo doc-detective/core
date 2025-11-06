@@ -2,6 +2,7 @@ const { validate } = require("doc-detective-common");
 const {
   findElementBySelectorOrText,
   findElementBySelectorAndText,
+  findElementByCriteria,
   setElementOutputs,
 } = require("./findStrategies");
 const { clickElement } = require("./click");
@@ -68,9 +69,36 @@ async function findElement({ config, step, driver }) {
     type: step.find.type || false,
   };
 
-  // Find element (and match text)
+  // Find element (and match text and other criteria)
   let element;
-  if (step.find.selector && step.find.elementText) {
+  
+  // Check if any of the new criteria are being used
+  const hasNewCriteria = step.find.elementId || step.find.elementTestId || 
+                         step.find.elementClass || step.find.elementAttribute || 
+                         step.find.elementAltText;
+  
+  if (hasNewCriteria || (step.find.selector && step.find.elementText)) {
+    // Use the new comprehensive finding function
+    const { element: foundElement, foundBy, error } = await findElementByCriteria({
+      selector: step.find.selector || undefined,
+      elementText: step.find.elementText || undefined,
+      elementId: step.find.elementId,
+      elementTestId: step.find.elementTestId,
+      elementClass: step.find.elementClass,
+      elementAttribute: step.find.elementAttribute,
+      elementAltText: step.find.elementAltText,
+      timeout: step.find.timeout,
+      driver,
+    });
+    
+    if (!foundElement) {
+      result.status = "FAIL";
+      result.description = error || "No elements matched criteria.";
+      return result;
+    }
+    element = foundElement;
+    result.description += ` Found element by ${foundBy}.`;
+  } else if (step.find.selector && step.find.elementText) {
     const { element: foundElement, foundBy } =
       await findElementBySelectorAndText({
         selector: step.find.selector,
