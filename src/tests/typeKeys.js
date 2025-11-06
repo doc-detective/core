@@ -111,7 +111,7 @@ async function typeKeys({ config, step, driver }) {
   const hasElementCriteria = step.type.selector || step.type.elementText || 
                              step.type.elementId || step.type.elementTestId || 
                              step.type.elementClass || step.type.elementAttribute || 
-                             step.type.elementAltText;
+                             step.type.elementAria;
   
   if (hasElementCriteria) {
     const { element: foundElement, foundBy, error } = await findElementByCriteria({
@@ -121,7 +121,7 @@ async function typeKeys({ config, step, driver }) {
       elementTestId: step.type.elementTestId,
       elementClass: step.type.elementClass,
       elementAttribute: step.type.elementAttribute,
-      elementAltText: step.type.elementAltText,
+      elementAria: step.type.elementAria,
       timeout: 5000,
       driver,
     });

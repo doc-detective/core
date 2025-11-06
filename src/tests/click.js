@@ -67,7 +67,7 @@ async function clickElement({ config, step, driver, element }) {
       // Check if any of the new criteria are being used
       const hasNewCriteria = step.click.elementId || step.click.elementTestId || 
                              step.click.elementClass || step.click.elementAttribute || 
-                             step.click.elementAltText;
+                             step.click.elementAria;
       
       if (hasNewCriteria || (step.click.selector && step.click.elementText)) {
         // Use the new comprehensive finding function
@@ -78,7 +78,7 @@ async function clickElement({ config, step, driver, element }) {
           elementTestId: step.click.elementTestId,
           elementClass: step.click.elementClass,
           elementAttribute: step.click.elementAttribute,
-          elementAltText: step.click.elementAltText,
+          elementAria: step.click.elementAria,
           timeout: step.click.timeout || 5000,
           driver,
         });

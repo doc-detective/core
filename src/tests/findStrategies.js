@@ -49,7 +49,7 @@ async function setElementOutputs({ element }) {
 
 async function findElementByRegex({ pattern, timeout, driver }) {
   await driver.pause(timeout);
-  // Find an element based on a regex pattern
+  // Find an element based on a regex pattern in text
   const elements = await driver.$$("//*[normalize-space(text())]");
   for (const element of elements) {
     const text = await element.getText();
@@ -60,51 +60,147 @@ async function findElementByRegex({ pattern, timeout, driver }) {
   return { element: null, foundBy: null };
 }
 
+async function findElementByAriaRegex({ pattern, timeout, driver }) {
+  await driver.pause(timeout);
+  // Find an element based on a regex pattern in accessible name
+  // WebDriverIO's aria selector uses accessible name
+  const elements = await driver.$$("//*");
+  for (const element of elements) {
+    try {
+      // Try to get accessible name - this is an approximation
+      // WebDriverIO's aria selector is better but we need to check all elements
+      const ariaLabel = await element.getAttribute('aria-label');
+      if (ariaLabel && ariaLabel.match(pattern)) {
+        return { element, foundBy: "elementAria" };
+      }
+      // Also check text content as fallback
+      const text = await element.getText();
+      if (text && text.match(pattern)) {
+        return { element, foundBy: "elementAria" };
+      }
+    } catch {
+      continue;
+    }
+  }
+  return { element: null, foundBy: null };
+}
+
+async function findElementByIdRegex({ pattern, timeout, driver }) {
+  await driver.pause(timeout);
+  // Find an element based on a regex pattern in id attribute
+  const elements = await driver.$$("//*[@id]");
+  for (const element of elements) {
+    const id = await element.getAttribute('id');
+    if (id && id.match(pattern)) {
+      return { element, foundBy: "elementId" };
+    }
+  }
+  return { element: null, foundBy: null };
+}
+
+async function findElementByTestIdRegex({ pattern, timeout, driver }) {
+  await driver.pause(timeout);
+  // Find an element based on a regex pattern in data-testid attribute
+  const elements = await driver.$$("//*[@data-testid]");
+  for (const element of elements) {
+    const testId = await element.getAttribute('data-testid');
+    if (testId && testId.match(pattern)) {
+      return { element, foundBy: "elementTestId" };
+    }
+  }
+  return { element: null, foundBy: null };
+}
+
+
 async function findElementBySelectorOrText({ string, driver }) {
-  // Find an element based on a string that could either be a selector or element text
+  // Find an element based on a string that could be a selector, text, aria label, id, or test id
+  // Uses parallel search with precedence: selector > elementText > elementAria > elementId > elementTestId
   const timeout = 5000;
 
-  // If regex, find element by regex
+  // If regex, find element by regex across all attribute types
   if (string.startsWith("/") && string.endsWith("/")) {
     const pattern = new RegExp(string.slice(1, -1));
-    const result = await findElementByRegex({
-      pattern,
-      timeout,
-      driver,
-    });
-    return result;
+    
+    // Perform parallel searches for regex pattern
+    const searches = [
+      { type: 'selector', promise: findElementByRegex({ pattern, timeout, driver }) },
+      { type: 'elementText', promise: findElementByRegex({ pattern, timeout, driver }) },
+      { type: 'elementAria', promise: findElementByAriaRegex({ pattern, timeout, driver }) },
+      { type: 'elementId', promise: findElementByIdRegex({ pattern, timeout, driver }) },
+      { type: 'elementTestId', promise: findElementByTestIdRegex({ pattern, timeout, driver }) }
+    ];
+    
+    const results = await Promise.allSettled(searches.map(s => s.promise));
+    
+    // Apply precedence order
+    for (let i = 0; i < searches.length; i++) {
+      if (results[i].status === 'fulfilled' && results[i].value.element) {
+        return { element: results[i].value.element, foundBy: searches[i].type };
+      }
+    }
+    
+    return { element: null, foundBy: null };
   }
 
-  // Perform searches for both concurrently
-  // Prefer a selector match over a text match
+  // Perform parallel searches for exact match across all five attribute types
   const selectorPromise = driver.$(string).then(async (el) => {
     await el.waitForExist({ timeout });
     return el;
-  });
+  }).catch(() => null);
+  
   const textPromise = driver.$(`//*[normalize-space(text())="${string}"]`).then(async (el) => {
     await el.waitForExist({ timeout });
     return el;
-  });
-  // Wait for both promises to resolve
+  }).catch(() => null);
+  
+  const ariaPromise = driver.$(`aria/${string}`).then(async (el) => {
+    await el.waitForExist({ timeout });
+    return el;
+  }).catch(() => null);
+  
+  const idPromise = driver.$(`//*[@id="${string}"]`).then(async (el) => {
+    await el.waitForExist({ timeout });
+    return el;
+  }).catch(() => null);
+  
+  const testIdPromise = driver.$(`//*[@data-testid="${string}"]`).then(async (el) => {
+    await el.waitForExist({ timeout });
+    return el;
+  }).catch(() => null);
 
-  const results = await Promise.allSettled([selectorPromise, textPromise]);
+  // Wait for all promises to resolve
+  const results = await Promise.allSettled([
+    selectorPromise, 
+    textPromise, 
+    ariaPromise, 
+    idPromise, 
+    testIdPromise
+  ]);
 
-  const selectorResult =
-    results[0].status === "fulfilled" ? results[0].value : null;
-  const textResult =
-    results[1].status === "fulfilled" ? results[1].value : null;
+  // Extract results
+  const selectorResult = results[0].status === "fulfilled" ? results[0].value : null;
+  const textResult = results[1].status === "fulfilled" ? results[1].value : null;
+  const ariaResult = results[2].status === "fulfilled" ? results[2].value : null;
+  const idResult = results[3].status === "fulfilled" ? results[3].value : null;
+  const testIdResult = results[4].status === "fulfilled" ? results[4].value : null;
 
-  let result;
-  // Check if selectorResult is a valid element
+  // Apply precedence order: selector > elementText > elementAria > elementId > elementTestId
   if (selectorResult && selectorResult.elementId) {
-    result = { element: selectorResult, foundBy: "selector" };
-    return result;
+    return { element: selectorResult, foundBy: "selector" };
   }
-  // Check if textResult is a valid element
   if (textResult && textResult.elementId) {
-    result = { element: textResult, foundBy: "text" };
-    return result;
+    return { element: textResult, foundBy: "elementText" };
   }
+  if (ariaResult && ariaResult.elementId) {
+    return { element: ariaResult, foundBy: "elementAria" };
+  }
+  if (idResult && idResult.elementId) {
+    return { element: idResult, foundBy: "elementId" };
+  }
+  if (testIdResult && testIdResult.elementId) {
+    return { element: testIdResult, foundBy: "elementTestId" };
+  }
+  
   // No matching elements
   return { element: null, foundBy: null };
 }
@@ -212,13 +308,13 @@ async function findElementByCriteria({
   elementTestId,
   elementClass,
   elementAttribute,
-  elementAltText,
+  elementAria,
   timeout = 5000,
   driver,
 }) {
   // Validate at least one criterion is provided
   if (!selector && !elementText && !elementId && !elementTestId && 
-      !elementClass && !elementAttribute && !elementAltText) {
+      !elementClass && !elementAttribute && !elementAria) {
     return { 
       element: null, 
       foundBy: null,
@@ -351,13 +447,21 @@ async function findElementByCriteria({
           }
         }
 
-        // Check elementAltText
-        if (elementAltText && matches) {
-          const altText = await element.getAttribute('alt');
-          if (!altText || !matchesPattern(altText, elementAltText)) {
+        // Check elementAria (computed accessible name)
+        if (elementAria && matches) {
+          try {
+            // Try to match using aria selector
+            const ariaLabel = await element.getAttribute('aria-label');
+            const elementText = await element.getText();
+            // Check aria-label first, then text content
+            const accessibleName = ariaLabel || elementText;
+            if (!accessibleName || !matchesPattern(accessibleName, elementAria)) {
+              matches = false;
+            } else {
+              if (!criteriaUsed.includes('elementAria')) criteriaUsed.push('elementAria');
+            }
+          } catch {
             matches = false;
-          } else {
-            if (!criteriaUsed.includes('elementAltText')) criteriaUsed.push('elementAltText');
           }
         }
 
@@ -391,7 +495,7 @@ async function findElementByCriteria({
   if (elementTestId) criteriaList.push('elementTestId');
   if (elementClass) criteriaList.push('elementClass');
   if (elementAttribute) criteriaList.push('elementAttribute');
-  if (elementAltText) criteriaList.push('elementAltText');
+  if (elementAria) criteriaList.push('elementAria');
   
   return { 
     element: null, 

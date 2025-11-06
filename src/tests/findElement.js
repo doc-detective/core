@@ -75,7 +75,7 @@ async function findElement({ config, step, driver }) {
   // Check if any of the new criteria are being used
   const hasNewCriteria = step.find.elementId || step.find.elementTestId || 
                          step.find.elementClass || step.find.elementAttribute || 
-                         step.find.elementAltText;
+                         step.find.elementAria;
   
   if (hasNewCriteria || (step.find.selector && step.find.elementText)) {
     // Use the new comprehensive finding function
@@ -86,7 +86,7 @@ async function findElement({ config, step, driver }) {
       elementTestId: step.find.elementTestId,
       elementClass: step.find.elementClass,
       elementAttribute: step.find.elementAttribute,
-      elementAltText: step.find.elementAltText,
+      elementAria: step.find.elementAria,
       timeout: step.find.timeout,
       driver,
     });

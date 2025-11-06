@@ -101,7 +101,7 @@ async function saveScreenshot({ config, step, driver }) {
           elementTestId: step.screenshot.crop?.elementTestId,
           elementClass: step.screenshot.crop?.elementClass,
           elementAttribute: step.screenshot.crop?.elementAttribute,
-          elementAltText: step.screenshot.crop?.elementAltText,
+          elementAria: step.screenshot.crop?.elementAria,
           timeout: step.screenshot.crop?.timeout,
         },
       };
