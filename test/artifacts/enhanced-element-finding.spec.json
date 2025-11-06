@@ -1,0 +1,364 @@
+{
+  "id": "enhancedElementFinding",
+  "tests": [
+    {
+      "id": "elementId-exact-match",
+      "steps": [
+        {
+          "action": "goTo",
+          "url": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "action": "find",
+          "elementId": "submit-button"
+        }
+      ]
+    },
+    {
+      "id": "elementId-regex-pattern",
+      "steps": [
+        {
+          "action": "goTo",
+          "url": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "action": "find",
+          "elementId": "/submit-.+/"
+        }
+      ]
+    },
+    {
+      "id": "elementTestId-exact-match",
+      "steps": [
+        {
+          "action": "goTo",
+          "url": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "action": "find",
+          "elementTestId": "login-form-submit"
+        }
+      ]
+    },
+    {
+      "id": "elementTestId-regex-pattern",
+      "steps": [
+        {
+          "action": "goTo",
+          "url": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "action": "find",
+          "elementTestId": "/.*-submit/"
+        }
+      ]
+    },
+    {
+      "id": "elementClass-single",
+      "steps": [
+        {
+          "action": "goTo",
+          "url": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "action": "find",
+          "elementClass": "enabled"
+        }
+      ]
+    },
+    {
+      "id": "elementClass-multiple",
+      "steps": [
+        {
+          "action": "goTo",
+          "url": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "action": "find",
+          "elementClass": ["btn", "btn-large"]
+        }
+      ]
+    },
+    {
+      "id": "elementClass-regex",
+      "steps": [
+        {
+          "action": "goTo",
+          "url": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "action": "find",
+          "elementClass": ["/btn-.+/", "enabled"]
+        }
+      ]
+    },
+    {
+      "id": "elementAttribute-string",
+      "steps": [
+        {
+          "action": "goTo",
+          "url": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "action": "find",
+          "elementAttribute": {
+            "aria-label": "Close dialog"
+          }
+        }
+      ]
+    },
+    {
+      "id": "elementAttribute-number",
+      "steps": [
+        {
+          "action": "goTo",
+          "url": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "action": "find",
+          "elementAttribute": {
+            "data-count": 5
+          }
+        }
+      ]
+    },
+    {
+      "id": "elementAttribute-boolean-true",
+      "steps": [
+        {
+          "action": "goTo",
+          "url": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "action": "find",
+          "selector": "button",
+          "elementAttribute": {
+            "disabled": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "elementAttribute-regex",
+      "steps": [
+        {
+          "action": "goTo",
+          "url": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "action": "find",
+          "elementAttribute": {
+            "data-validation": "/^email-.+/"
+          }
+        }
+      ]
+    },
+    {
+      "id": "elementAltText-exact",
+      "steps": [
+        {
+          "action": "goTo",
+          "url": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "action": "find",
+          "selector": "img",
+          "elementAltText": "Company logo"
+        }
+      ]
+    },
+    {
+      "id": "elementAltText-regex",
+      "steps": [
+        {
+          "action": "goTo",
+          "url": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "action": "find",
+          "selector": "img",
+          "elementAltText": "/.*logo$/"
+        }
+      ]
+    },
+    {
+      "id": "combined-criteria-and-logic",
+      "steps": [
+        {
+          "action": "goTo",
+          "url": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "action": "find",
+          "selector": "button",
+          "elementId": "submit-button",
+          "elementClass": ["btn", "btn-primary"]
+        }
+      ]
+    },
+    {
+      "id": "combined-selector-text-id",
+      "steps": [
+        {
+          "action": "goTo",
+          "url": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "action": "find",
+          "selector": "button",
+          "elementText": "Submit Order",
+          "elementId": "primary-action",
+          "elementAttribute": {"disabled": "false"}
+        }
+      ]
+    },
+    {
+      "id": "click-with-elementTestId",
+      "steps": [
+        {
+          "action": "goTo",
+          "url": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "action": "click",
+          "elementTestId": "checkout-button"
+        }
+      ]
+    },
+    {
+      "id": "click-with-elementClass",
+      "steps": [
+        {
+          "action": "goTo",
+          "url": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "action": "click",
+          "elementClass": "enabled",
+          "elementText": "Enabled Primary"
+        }
+      ]
+    },
+    {
+      "id": "type-with-elementTestId",
+      "steps": [
+        {
+          "action": "goTo",
+          "url": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "action": "type",
+          "elementTestId": "username-field",
+          "keys": "testuser"
+        }
+      ]
+    },
+    {
+      "id": "type-with-elementAttribute",
+      "steps": [
+        {
+          "action": "goTo",
+          "url": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "action": "type",
+          "elementAttribute": {
+            "type": "email",
+            "required": true
+          },
+          "keys": "test@example.com"
+        }
+      ]
+    },
+    {
+      "id": "screenshot-with-crop-elementTestId",
+      "steps": [
+        {
+          "action": "goTo",
+          "url": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "action": "screenshot",
+          "path": "enhanced-modal.png",
+          "crop": {
+            "elementTestId": "modal-close"
+          }
+        }
+      ]
+    },
+    {
+      "id": "screenshot-with-crop-elementClass",
+      "steps": [
+        {
+          "action": "goTo",
+          "url": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "action": "screenshot",
+          "path": "enhanced-modal-large.png",
+          "crop": {
+            "elementClass": ["modal", "modal-visible"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "multiple-attributes-combined",
+      "steps": [
+        {
+          "action": "goTo",
+          "url": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "action": "find",
+          "selector": "input",
+          "elementAttribute": {
+            "type": "email",
+            "required": true,
+            "data-validation": "/^email-.+/"
+          }
+        }
+      ]
+    },
+    {
+      "id": "first-element-when-multiple-match",
+      "steps": [
+        {
+          "action": "goTo",
+          "url": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "action": "find",
+          "elementClass": "btn-primary"
+        }
+      ]
+    },
+    {
+      "id": "backward-compatibility-selector-only",
+      "steps": [
+        {
+          "action": "goTo",
+          "url": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "action": "click",
+          "selector": "#submit-button"
+        }
+      ]
+    },
+    {
+      "id": "backward-compatibility-selector-and-text",
+      "steps": [
+        {
+          "action": "goTo",
+          "url": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "action": "click",
+          "selector": "button",
+          "elementText": "Submit Form"
+        }
+      ]
+    }
+  ]
+}
