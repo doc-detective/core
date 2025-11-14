@@ -44,6 +44,7 @@ describe("Run tests successfully", function () {
     const config_tests = JSON.parse(JSON.stringify(config_base));
     config_tests.runTests.input = inputPath;
     const result = await runTests(config_tests);
+    if (result === null) assert.fail("Expected result to be non-null");
     assert.equal(result.summary.specs.fail, 0);
   });
 
@@ -104,6 +105,64 @@ describe("Run tests successfully", function () {
       result = await runTests(config);
       assert.equal(result.summary.specs.fail, 0);
       assert.equal(result.summary.specs.skipped, 1);
+    } finally {
+      // Ensure cleanup even on failure
+      fs.unlinkSync(tempFilePath);
+    }
+  });
+
+  it("Test is marked as skipped when all contexts are skipped", async () => {
+    // Create a spec with a context for a different platform than the current one.
+    // The resolver will generate a context that doesn't match the current platform,
+    // which will cause it to be skipped.
+    const currentPlatform = require("os").platform();
+    const targetPlatform =
+      currentPlatform === "win32" ? "linux" : "windows";
+
+    const allContextsSkippedTest = {
+      id: "test-all-contexts-skipped",
+      contexts: [
+        {
+          app: { name: "firefox" },
+          platforms: [targetPlatform], // Will be skipped on current platform
+        },
+      ],
+      tests: [
+        {
+          id: "test-1",
+          steps: [
+            {
+              action: "runShell",
+              command: "echo 'This should not run'",
+            },
+          ],
+        },
+      ],
+    };
+
+    // Write the test to a temporary file
+    const tempFilePath = path.resolve("./test/temp-all-contexts-skipped.json");
+    fs.writeFileSync(
+      tempFilePath,
+      JSON.stringify(allContextsSkippedTest, null, 2)
+    );
+    const config = {
+      input: tempFilePath,
+      logLevel: "silent",
+    };
+    let result;
+    try {
+      result = await runTests(config);
+      // Verify that the test is marked as skipped, not passed
+      assert.equal(result.summary.tests.skipped, 1);
+      assert.equal(result.summary.tests.pass, 0);
+      assert.equal(result.summary.specs.skipped, 1);
+      assert.equal(result.summary.specs.pass, 0);
+      assert.equal(result.summary.contexts.skipped, 1);
+      // Also verify the actual test result
+      assert.equal(result.specs[0].result, "SKIPPED");
+      assert.equal(result.specs[0].tests[0].result, "SKIPPED");
+      assert.equal(result.specs[0].tests[0].contexts[0].result, "SKIPPED");
     } finally {
       // Ensure cleanup even on failure
       fs.unlinkSync(tempFilePath);

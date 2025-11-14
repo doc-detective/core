@@ -1,5 +1,4 @@
 tests:
 - steps:
-  - unsafe: true
-    runShell: exit 0
-  - runShell: exit 0
+  - goTo: https://www.doc-detective.com
+  - loadCookie: inkeepUsagePreferences_userId.txt

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
+<topic id="doc_detective_overview">
+  <title>Doc Detective documentation overview</title>
+  <body>
+    <?doc-detective test testId="doc-detective-docs"
+      detectSteps="false" ?>
+    <p><xref href="http://doc-detective.com" format="html" scope="external">Doc Detective documentation</xref> is split into a few key sections:</p>
+    <?doc-detective step checkLink="https://doc-detective.com" ?>
+    <ul>
+      <li>The landing page discusses what Doc Detective is, what it does, and who might find it useful.</li>
+      <li><xref href="https://doc-detective.com/docs/get-started/intro" format="html" scope="external">Get started</xref> covers how to quickly get up and running with Doc Detective.
+        <?doc-detective step checkLink="https://doc-detective.com/docs/get-started/intro" ?>
+      </li>
+    </ul>
+    <p>Some pages also have unique headings. If you open <xref href="https://doc-detective.com/docs/get-started/actions/type" format="html" scope="external">type</xref> it has <b>Special keys</b>.</p>
+    <?doc-detective step goTo="https://doc-detective.com/docs/get-started/actions/type" ?>
+    <?doc-detective step find="Special keys" ?>
+    <fig>
+      <title>Search results</title>
+      <image href="reference.png" placement="break">
+        <alt>Search results.</alt>
+      </image>
+      <?doc-detective step screenshot="reference.png" ?>
+    </fig>
+  </body>
+</topic>
