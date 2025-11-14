@@ -505,10 +505,9 @@ function fieldExistsAtPath(obj, path) {
   
   // Traverse each segment
   for (const segment of segments) {
-    // Check if segment is an array index
-    const arrayIndex = parseInt(segment, 10);
-    
-    if (!isNaN(arrayIndex)) {
+    // Treat as array index only if the segment is purely numeric (e.g., "0", "12")
+    if (/^\d+$/.test(segment)) {
+      const arrayIndex = parseInt(segment, 10);
       // Array access
       if (!Array.isArray(current) || current.length <= arrayIndex) {
         return false;
