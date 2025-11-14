@@ -174,9 +174,11 @@ async function httpRequest({ config, step, openApiDefinitions = [] }) {
       headers: {},
       body: {},
     },
-    response: step.httpRequest.response || {
+    response: {
       headers: {},
       body: {},
+      required: [],
+      ...(step.httpRequest.response || {}),
     },
     allowAdditionalFields:
       typeof step.httpRequest.allowAdditionalFields !== "undefined"
@@ -294,6 +296,23 @@ async function httpRequest({ config, step, openApiDefinitions = [] }) {
       result.description = `Returned ${
         response.status
       }. Expected one of ${JSON.stringify(step.httpRequest.statusCodes)}.`;
+    }
+  }
+
+  // Validate required fields in response
+  if (step.httpRequest.response?.required?.length > 0) {
+    const missingFields = [];
+    
+    for (const fieldPath of step.httpRequest.response.required) {
+      if (!fieldExistsAtPath(response.data, fieldPath)) {
+        missingFields.push(fieldPath);
+      }
+    }
+    
+    if (missingFields.length > 0) {
+      result.status = "FAIL";
+      result.description += ` Missing required fields: ${missingFields.join(", ")}`;
+      return result;
     }
   }
 
@@ -463,6 +482,48 @@ async function httpRequest({ config, step, openApiDefinitions = [] }) {
 
   result.description = result.description.trim();
   return result;
+}
+
+/**
+ * Checks if a field exists at the specified path in an object.
+ * Supports dot notation and array indices.
+ * 
+ * @param {Object} obj - The object to search
+ * @param {string} path - The field path (e.g., "user.profile.name" or "items[0].id")
+ * @returns {boolean} - True if the field exists, false otherwise
+ */
+function fieldExistsAtPath(obj, path) {
+  // Parse the path into segments
+  // Handle both dot notation and array brackets
+  const segments = path.match(/[^.[\]]+/g);
+  
+  if (!segments) {
+    return false;
+  }
+  
+  let current = obj;
+  
+  // Traverse each segment
+  for (const segment of segments) {
+    // Treat as array index only if the segment is purely numeric (e.g., "0", "12")
+    if (/^\d+$/.test(segment)) {
+      const arrayIndex = parseInt(segment, 10);
+      // Array access
+      if (!Array.isArray(current) || current.length <= arrayIndex) {
+        return false;
+      }
+      current = current[arrayIndex];
+    } else {
+      // Object property access
+      // Use 'in' operator to check existence (works for null/undefined values)
+      if (typeof current !== 'object' || current === null || !(segment in current)) {
+        return false;
+      }
+      current = current[segment];
+    }
+  }
+  
+  return true;
 }
 
 function arrayExistsInArray(expected, actual) {
