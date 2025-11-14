@@ -1,7 +1,7 @@
 {
   "tests": [
     {
-      "id": "httpRequest_required_basic_fields",
+      "testId": "httpRequest_required_basic_fields",
       "description": "Test basic field existence validation",
       "steps": [
         {
@@ -23,7 +23,7 @@
       ]
     },
     {
-      "id": "httpRequest_required_nested_fields",
+      "testId": "httpRequest_required_nested_fields",
       "description": "Test nested field existence validation",
       "steps": [
         {
@@ -55,7 +55,7 @@
       ]
     },
     {
-      "id": "httpRequest_required_array_fields",
+      "testId": "httpRequest_required_array_fields",
       "description": "Test array element field existence validation",
       "steps": [
         {
@@ -90,7 +90,7 @@
       ]
     },
     {
-      "id": "httpRequest_required_null_values",
+      "testId": "httpRequest_required_null_values",
       "description": "Test that null and undefined values pass validation",
       "steps": [
         {
@@ -113,7 +113,7 @@
       ]
     },
     {
-      "id": "httpRequest_required_combined_validation",
+      "testId": "httpRequest_required_combined_validation",
       "description": "Test required fields combined with body validation",
       "steps": [
         {
@@ -147,7 +147,7 @@
       ]
     },
     {
-      "id": "httpRequest_required_empty_array",
+      "testId": "httpRequest_required_empty_array",
       "description": "Test that empty required array performs no validation",
       "steps": [
         {
