@@ -14,17 +14,21 @@ const { saveScreenshot } = require("./tests/saveScreenshot");
 const { startRecording } = require("./tests/startRecording");
 const { stopRecording } = require("./tests/stopRecording");
 const { loadVariables } = require("./tests/loadVariables");
+const { saveCookie } = require("./tests/saveCookie");
+const { loadCookie } = require("./tests/loadCookie");
 const { httpRequest } = require("./tests/httpRequest");
 const { clickElement } = require("./tests/click");
 const { runCode } = require("./tests/runCode");
+const { dragAndDropElement } = require("./tests/dragAndDrop");
 const path = require("path");
 const { spawn } = require("child_process");
-const uuid = require("uuid");
+const { randomUUID } = require("crypto");
 const { setAppiumHome } = require("./appium");
 const { resolveExpression } = require("./expressions");
 const { getEnvironment, getAvailableApps } = require("./config");
 
 exports.runSpecs = runSpecs;
+exports.runViaApi = runViaApi;
 // exports.appiumStart = appiumStart;
 // exports.appiumIsReady = appiumIsReady;
 // exports.driverStart = driverStart;
@@ -32,10 +36,13 @@ exports.runSpecs = runSpecs;
 // Doc Detective actions that require a driver.
 const driverActions = [
   "click",
+  "dragAndDrop",
   "stopRecord",
   "find",
   "goTo",
+  "loadCookie",
   "record",
+  "saveCookie",
   "screenshot",
   "type",
 ];
@@ -48,7 +55,9 @@ function getDriverCapabilities({ runnerDetails, name, options }) {
   // Set Firefox capabilities
   switch (name) {
     case "firefox":
-      firefox = runnerDetails.availableApps.find((app) => app.name === "firefox");
+      firefox = runnerDetails.availableApps.find(
+        (app) => app.name === "firefox"
+      );
       if (!firefox) break;
       // Set args
       // Reference: https://wiki.mozilla.org/Firefox/CommandLineOptions
@@ -58,7 +67,6 @@ function getDriverCapabilities({ runnerDetails, name, options }) {
         platformName: runnerDetails.environment.platform,
         "appium:automationName": "Gecko",
         "appium:newCommandTimeout": 600, // 10 minutes
-        "wdio:enforceWebDriverClassic": true,
         browserName: "MozillaFirefox",
         "moz:firefoxOptions": {
           // Reference: https://developer.mozilla.org/en-US/docs/Web/WebDriver/Capabilities/firefoxOptions
@@ -76,14 +84,15 @@ function getDriverCapabilities({ runnerDetails, name, options }) {
     case "safari":
       // Set Safari capabilities
       if (runnerDetails.availableApps.find((app) => app.name === "safari")) {
-        safari = runnerDetails.availableApps.find((app) => app.name === "safari");
+        safari = runnerDetails.availableApps.find(
+          (app) => app.name === "safari"
+        );
         if (!safari) break;
         // Set capabilities
         capabilities = {
           platformName: "Mac",
           "appium:automationName": "Safari",
           "appium:newCommandTimeout": 600, // 10 minutes
-          "wdio:enforceWebDriverClassic": true,
           browserName: "Safari",
         };
       }
@@ -107,7 +116,6 @@ function getDriverCapabilities({ runnerDetails, name, options }) {
           "appium:newCommandTimeout": 600, // 10 minutes
           "appium:executable": chromium.driver,
           browserName: "chrome",
-          "wdio:enforceWebDriverClassic": true,
           "goog:chromeOptions": {
             // Reference: https://chromedriver.chromium.org/capabilities#h.p_ID_102
             args,
@@ -175,7 +183,7 @@ function getDefaultBrowser({ runnerDetails }) {
   let browser = {};
   const browserNames = ["firefox", "chrome", "safari"];
   for (const name of browserNames) {
-    if (runnerDetails.availableApps.find(app => app.name === name)) {
+    if (runnerDetails.availableApps.find((app) => app.name === name)) {
       browser = { name };
       break;
     }
@@ -187,7 +195,7 @@ function getDefaultBrowser({ runnerDetails }) {
 async function setViewportSize(context, driver) {
   if (context.browser?.viewport?.width || context.browser?.viewport?.height) {
     // Get viewport size, not window size
-    const viewportSize = await driver.executeScript(
+    const viewportSize = await driver.execute(
       "return { width: window.innerWidth, height: window.innerHeight }",
       []
     );
@@ -206,10 +214,6 @@ async function setViewportSize(context, driver) {
       windowSize.height + deltaHeight
     );
     // Confirm viewport size
-    const finalViewportSize = await driver.executeScript(
-      "return { width: window.innerWidth, height: window.innerHeight }",
-      []
-    );
   }
 }
 
@@ -219,12 +223,134 @@ async function allowUnsafeSteps({ config }) {
   // If allowUnsafeSteps is set to false, return false
   else if (config.allowUnsafeSteps === false) return false;
   // if DOC_DETECTIVE.container is set to true, return true
-  else if (process.env.DOC_DETECTIVE && JSON.parse(process.env.DOC_DETECTIVE).container) return true;
+  else if (
+    process.env.DOC_DETECTIVE &&
+    JSON.parse(process.env.DOC_DETECTIVE).container
+  )
+    return true;
   // If allowUnsafeSteps is not set, return false by default
   else return false;
 }
 
-// Iterate through and execute test specifications and contained tests.
+// Run specifications via API.
+async function runViaApi({ resolvedTests, apiKey, config = {} }) {
+  const baseUrl =
+    process.env.DOC_DETECTIVE_API_URL || "https://api.doc-detective.com";
+  // Make an API request to create a test run
+  const apiUrl = `${baseUrl}/runs`;
+
+  // Configure axios with proper timeout and connection handling
+  const axiosConfig = {
+    headers: {
+      "X-API-Key": apiKey,
+      "Content-Type": "application/json",
+    },
+    // Prevent connection reuse issues with keep-alive
+    httpAgent: new (require("http").Agent)({ keepAlive: false }),
+    httpsAgent: new (require("https").Agent)({ keepAlive: false }),
+  };
+
+  // Create run
+  let createResponse;
+  try {
+    createResponse = await axios.post(apiUrl, resolvedTests, axiosConfig);
+  } catch (error) {
+    return { status: error.response?.status, error: error.response?.data?.error };
+  }
+  if (createResponse.status !== 201) {
+    return { status: createResponse.status, error: createResponse.data.error };
+  }
+  const runId = createResponse.data.run.runId;
+
+  // TODO: Add file uploads, if any
+
+  // Start run
+  let startResponse;
+  try {
+    startResponse = await axios.post(
+      `${apiUrl}/${runId}/start`,
+      {},
+      axiosConfig
+    );
+  } catch (error) {
+    return { status: error.response?.status, error: error.response?.data?.error };
+  }
+  if (startResponse.status !== 200) {
+    return { status: startResponse.status, error: startResponse.data.error };
+  }
+
+  // Poll for results
+  const pollInterval = 5000; // 5 seconds in milliseconds
+  const pollIntervalVariance = 2000; // +/- 2 seconds
+  const maxWaitTime = (config.apiMaxWaitTime || 600) * 1000; // Default 600 seconds (10 minutes), converted to milliseconds
+  const startTime = Date.now();
+
+  let response;
+  while (true) {
+    // Check if we've exceeded the max wait time
+    if (Date.now() - startTime > maxWaitTime) {
+      return {
+        status: 408,
+        type: "TIMEOUT",
+        error: `Test execution exceeded maximum wait time of ${maxWaitTime / 1000} seconds`,
+      };
+    }
+
+    // Poll for results
+    try {
+      response = await axios.get(`${apiUrl}/${runId}`, axiosConfig);
+    } catch (error) {
+      return {
+        status: error.response?.status,
+        error: error.response?.data?.error,
+      };
+    }
+
+    if (response.status !== 200) {
+      return { status: response.status, error: response.data.error };
+    }
+
+    // Check if the test run is complete
+    if (response.data.status === "completed") {
+      break;
+    }
+
+    // Wait before polling again (with variance)
+    const variance =
+      Math.random() * pollIntervalVariance * 2 - pollIntervalVariance;
+    const waitTime = pollInterval + variance;
+    await new Promise((resolve) => setTimeout(resolve, waitTime));
+  }
+
+  // TODO: Handle file downloads/placement, if any
+
+  try {
+    const results = JSON.parse(response.data.report);
+    return results;
+  } catch (error) {
+    return {
+      status: "PARSE_ERROR",
+      error: `Failed to parse API response: ${error.message}`,
+    };
+  }
+}
+
+/**
+ * Orchestrates execution of resolved test specifications and returns a hierarchical run report.
+ *
+ * Executes each spec -> test -> context -> step, conditionally starts Appium and browser drivers,
+ * applies viewport/window sizing, handles unsafe-step policies and recording, aggregates per-step,
+ * per-context, per-test, and per-spec results, and performs resource cleanup.
+ *
+ * @param {Object} resolvedTests - Resolved test bundle containing configuration and specs to run.
+ * @param {Object} resolvedTests.config - Runner configuration used during execution.
+ * @param {Array<Object>} resolvedTests.specs - Array of spec objects to execute.
+ * @returns {Object} A report object summarizing results with structure:
+ *  {
+ *    summary: { specs: {...}, tests: {...}, contexts: {...}, steps: {...} },
+ *    specs: [ { specId, description, contentPath, result, tests: [ { testId, description, contentPath, result, contexts: [ { platform, browser, result, steps: [...] } ] } ] } ]
+ *  }
+ */
 async function runSpecs({ resolvedTests }) {
   const config = resolvedTests.config;
   const specs = resolvedTests.specs;
@@ -285,10 +411,10 @@ async function runSpecs({ resolvedTests }) {
       cwd: path.join(__dirname, ".."),
     });
     appium.stdout.on("data", (data) => {
-      //   console.log(`stdout: ${data}`);
+        // console.log(`stdout: ${data}`);
     });
     appium.stderr.on("data", (data) => {
-      //   console.error(`stderr: ${data}`);
+        // console.error(`stderr: ${data}`);
     });
     await appiumIsReady();
     log(config, "debug", "Appium is ready.");
@@ -331,15 +457,22 @@ async function runSpecs({ resolvedTests }) {
         if (!context.platform)
           context.platform = runnerDetails.environment.platform;
 
+        // Attach OpenAPI definitions to context
+        if (config.integrations?.openApi) {
+          context.openApi = [
+            ...(context.openApi || []),
+            ...config.integrations.openApi,
+          ];
+        }
+
         // If "browser" isn't defined but is required by the test, set it to the first available browser in the sequence of Firefox, Chrome, Safari
         if (!context.browser && isDriverRequired({ test: context })) {
           context.browser = getDefaultBrowser({ runnerDetails });
         }
 
-        log(config, "debug", `CONTEXT:\n${JSON.stringify(context, null, 2)}`);
-
         // Set context report
         let contextReport = {
+          contextId: context.contextId || randomUUID(),
           platform: context.platform,
           browser: context.browser,
           steps: [],
@@ -361,15 +494,16 @@ async function runSpecs({ resolvedTests }) {
           log(
             config,
             "warning",
-            `Skipping context. The current system doesn't support this context (${JSON.stringify(
-              context
-            )}).`
+            `Skipping context. The current system doesn't support this context: {"platform": "${
+              context.platform
+            }", "apps": ${JSON.stringify(context.apps)}}`
           );
-          contextReport = { result: { status: "SKIPPED" }, ...contextReport };
+          contextReport = { result: "SKIPPED", ...contextReport };
           report.summary.contexts.skipped++;
           testReport.contexts.push(contextReport);
           continue;
         }
+        log(config, "debug", `CONTEXT:\n${JSON.stringify(context, null, 2)}`);
 
         let driver;
         // Ensure context contains a 'steps' property
@@ -422,7 +556,8 @@ async function runSpecs({ resolvedTests }) {
                   " Make sure you've run `safaridriver --enable` in a terminal and enabled 'Allow Remote Automation' in Safari's Develop menu.";
               log(config, "error", errorMessage);
               contextReport = {
-                result: { status: "SKIPPED", description: errorMessage },
+                result: "SKIPPED",
+                resultDescription: errorMessage,
                 ...contextReport,
               };
               report.summary.contexts.skipped++;
@@ -455,9 +590,8 @@ async function runSpecs({ resolvedTests }) {
         let stepExecutionFailed = false;
         for (let step of context.steps) {
           // Set step id if not defined
-          if (!step.stepId) step.stepId = `${uuid.v4()}`;
+          if (!step.stepId) step.stepId = randomUUID();
           log(config, "debug", `STEP:\n${JSON.stringify(step, null, 2)}`);
-
 
           if (step.unsafe && runnerDetails.allowUnsafeSteps === false) {
             log(
@@ -469,7 +603,7 @@ async function runSpecs({ resolvedTests }) {
             const stepReport = {
               ...step,
               result: "SKIPPED",
-              resultDescription: "Skipped because unsafe steps aren't allowed."
+              resultDescription: "Skipped because unsafe steps aren't allowed.",
             };
             contextReport.steps.push(stepReport);
             report.summary.steps.skipped++;
@@ -481,7 +615,7 @@ async function runSpecs({ resolvedTests }) {
             const stepReport = {
               ...step,
               result: "SKIPPED",
-              resultDescription: "Skipped due to previous failure in context."
+              resultDescription: "Skipped due to previous failure in context.",
             };
             contextReport.steps.push(stepReport);
             report.summary.steps.skipped++;
@@ -507,7 +641,11 @@ async function runSpecs({ resolvedTests }) {
           log(
             config,
             "debug",
-            `RESULT: ${stepResult.status}, ${stepResult.description}`
+            `RESULT: ${stepResult.status}\n${JSON.stringify(
+              stepResult,
+              null,
+              2
+            )}`
           );
 
           stepResult.result = stepResult.status;
@@ -534,7 +672,7 @@ async function runSpecs({ resolvedTests }) {
           const stopRecordStep = {
             stopRecord: true,
             description: "Stopping recording",
-            stepId: `${uuid.v4()}`,
+            stepId: randomUUID(),
           };
           const stepResult = await runStep({
             config: config,
@@ -668,6 +806,12 @@ async function runStep({
       step: step,
       driver: driver,
     });
+  } else if (typeof step.dragAndDrop !== "undefined") {
+    actionResult = await dragAndDropElement({
+      config: config,
+      step: step,
+      driver: driver,
+    });
   } else if (typeof step.checkLink !== "undefined") {
     actionResult = await checkLink({ config: config, step: step });
   } else if (typeof step.find !== "undefined") {
@@ -678,6 +822,18 @@ async function runStep({
     actionResult = await goTo({ config: config, step: step, driver: driver });
   } else if (typeof step.loadVariables !== "undefined") {
     actionResult = await loadVariables({ step: step });
+  } else if (typeof step.saveCookie !== "undefined") {
+    actionResult = await saveCookie({
+      config: config,
+      step: step,
+      driver: driver,
+    });
+  } else if (typeof step.loadCookie !== "undefined") {
+    actionResult = await loadCookie({
+      config: config,
+      step: step,
+      driver: driver,
+    });
   } else if (typeof step.httpRequest !== "undefined") {
     actionResult = await httpRequest({
       config: config,
@@ -754,7 +910,7 @@ async function appiumIsReady() {
     // TODO: Add configurable timeout duration
     await new Promise((resolve) => setTimeout(resolve, 1000));
     try {
-      let resp = await axios.get("http://0.0.0.0:4723/sessions");
+      let resp = await axios.get("http://0.0.0.0:4723/status");
       if (resp.status === 200) isReady = true;
     } catch {}
   }

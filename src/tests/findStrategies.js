@@ -1,7 +1,5 @@
-exports.findElementBySelectorAndText =
-  findElementBySelectorAndText;
-exports.findElementBySelectorOrText =
-  findElementBySelectorOrText;
+exports.findElementBySelectorAndText = findElementBySelectorAndText;
+exports.findElementBySelectorOrText = findElementBySelectorOrText;
 exports.findElementByCriteria = findElementByCriteria;
 
 // Set element outputs
@@ -13,7 +11,7 @@ async function setElementOutputs({ element }) {
 
   const [
     text, html, tag, value, location, size,
-    clickable, enabled, selected, displayed, inViewport,
+    clickable, enabled, selected, displayed, displayedInViewport,
   ] = await Promise.allSettled([
     element.getText(),
     element.getHTML(),
@@ -25,7 +23,7 @@ async function setElementOutputs({ element }) {
     element.isEnabled(),
     element.isSelected(),
     element.isDisplayed(),
-    element.isDisplayedInViewport(),
+    element.isDisplayed({withinViewport: true}),
   ]).then(results =>
     results.map(r => (r.status === 'fulfilled' ? r.value : null))
   );
@@ -41,7 +39,7 @@ async function setElementOutputs({ element }) {
     enabled,
     selected,
     displayed,
-    displayedInViewport: inViewport,
+    displayedInViewport,
   });
 
   return outputs;
@@ -212,27 +210,35 @@ async function findElementBySelectorAndText({
   driver,
 }) {
   let element;
-  if (!selector && !text) {
+  let elements = [];
+  if (!selector || !text) {
     return { element: null, foundBy: null }; // No selector or text
   }
-  // Wait  timeout milliseconds
-  await driver.pause(timeout);
-  // Find an element based on a selector and text
-  // Elements must match both selector and text
-  let elements = await driver.$$(selector);
-  elements = await elements.filter(async (el) => {
-    const elementText = await el.getText();
-    if (!(elementText && el.elementId)) {
-      return false;
+  const startTime = Date.now();
+  while (Date.now() - startTime < timeout) {
+    const candidates = await driver.$$(selector);
+    elements = [];
+    for (const el of candidates) {
+      const elementText = await el.getText();
+      if (!elementText) {
+        continue;
+      }
+      if (text.startsWith("/") && text.endsWith("/")) {
+        const pattern = new RegExp(text.slice(1, -1));
+        if (!pattern.test(elementText)) {
+          continue;
+        }
+      } else if (elementText !== text) {
+        continue;
+      }
+      elements.push(el);
     }
-    // If text is a regex, match against it
-    if (text.startsWith("/") && text.endsWith("/")) {
-      const pattern = new RegExp(text.slice(1, -1));
-      return pattern.test(elementText);
+    if (elements.length > 0) {
+      break;
     }
-    // If text is a string, match against it
-    return elementText === text;
-  });
+    // Wait 100ms before trying again
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
   if (elements.length === 0) {
     return { element: null, foundBy: null }; // No matching elements
   }
