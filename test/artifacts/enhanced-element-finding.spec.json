@@ -26,6 +26,419 @@
           }
         }
       ]
+    },
+    {
+      "testId": "elementTestId-exact-match",
+      "steps": [
+        {
+          "goTo": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "find": {
+            "elementTestId": "login-form-submit"
+          }
+        }
+      ]
+    },
+    {
+      "testId": "elementTestId-regex-pattern",
+      "steps": [
+        {
+          "goTo": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "find": {
+            "elementTestId": "/.*-submit/"
+          }
+        }
+      ]
+    },
+    {
+      "testId": "elementClass-single",
+      "steps": [
+        {
+          "goTo": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "find": {
+            "elementClass": "enabled"
+          }
+        }
+      ]
+    },
+    {
+      "testId": "elementClass-multiple",
+      "steps": [
+        {
+          "goTo": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "find": {
+            "elementClass": ["btn", "btn-large"]
+          }
+        }
+      ]
+    },
+    {
+      "testId": "elementClass-regex",
+      "steps": [
+        {
+          "goTo": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "find": {
+            "elementClass": ["/btn-.+/", "enabled"]
+          }
+        }
+      ]
+    },
+    {
+      "testId": "elementAttribute-string",
+      "steps": [
+        {
+          "goTo": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "find": {
+            "elementAttribute": {
+              "aria-label": "Close dialog"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "testId": "elementAttribute-number",
+      "steps": [
+        {
+          "goTo": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "find": {
+            "elementAttribute": {
+              "data-count": 5
+            }
+          }
+        }
+      ]
+    },
+    {
+      "testId": "elementAttribute-boolean-true",
+      "steps": [
+        {
+          "goTo": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "find": {
+            "selector": "button",
+            "elementAttribute": {
+              "disabled": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "testId": "elementAttribute-regex",
+      "steps": [
+        {
+          "goTo": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "find": {
+            "elementAttribute": {
+              "data-validation": "/^email-.+/"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "testId": "elementAria-exact",
+      "steps": [
+        {
+          "goTo": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "find": {
+            "selector": "button",
+            "elementAria": "Close dialog"
+          }
+        }
+      ]
+    },
+    {
+      "testId": "elementAria-regex",
+      "steps": [
+        {
+          "goTo": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "find": {
+            "elementAria": "/Save.*button/"
+          }
+        }
+      ]
+    },
+    {
+      "testId": "elementAria-text-content",
+      "steps": [
+        {
+          "goTo": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "find": {
+            "elementAria": "Cancel Operation"
+          }
+        }
+      ]
+    },
+    {
+      "testId": "string-shorthand-precedence-selector",
+      "steps": [
+        {
+          "goTo": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "find": {
+            "selector": "#submit-button"
+          }
+        }
+      ]
+    },
+    {
+      "testId": "string-shorthand-precedence-text",
+      "steps": [
+        {
+          "goTo": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "find": "Submit by ID"
+        }
+      ]
+    },
+    {
+      "testId": "string-shorthand-precedence-aria",
+      "steps": [
+        {
+          "goTo": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "find": "Close dialog"
+        }
+      ]
+    },
+    {
+      "testId": "string-shorthand-precedence-id",
+      "steps": [
+        {
+          "goTo": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "find": "submit-button"
+        }
+      ]
+    },
+    {
+      "testId": "string-shorthand-precedence-testid",
+      "steps": [
+        {
+          "goTo": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "find": "login-form-submit"
+        }
+      ]
+    },
+    {
+      "testId": "string-shorthand-regex",
+      "steps": [
+        {
+          "goTo": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "find": "/submit-.+/"
+        }
+      ]
+    },
+    {
+      "testId": "combined-criteria-and-logic",
+      "steps": [
+        {
+          "goTo": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "find": {
+            "selector": "button",
+            "elementId": "submit-button",
+            "elementClass": ["btn", "btn-primary"]
+          }
+        }
+      ]
+    },
+    {
+      "testId": "combined-selector-text-id",
+      "steps": [
+        {
+          "goTo": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "find": {
+            "selector": "button",
+            "elementText": "Submit Order",
+            "elementId": "primary-action",
+            "elementAttribute": { "disabled": "false" }
+          }
+        }
+      ]
+    },
+    {
+      "testId": "click-with-elementTestId",
+      "steps": [
+        {
+          "goTo": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "click": {
+            "elementTestId": "checkout-button"
+          }
+        }
+      ]
+    },
+    {
+      "testId": "click-with-elementClass",
+      "steps": [
+        {
+          "goTo": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "click": {
+            "elementClass": "enabled",
+            "elementText": "Enabled Primary"
+          }
+        }
+      ]
+    },
+    {
+      "testId": "type-with-elementTestId",
+      "steps": [
+        {
+          "goTo": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "type": {
+            "elementTestId": "username-field",
+            "keys": "testuser"
+          }
+        }
+      ]
+    },
+    {
+      "testId": "type-with-elementAttribute",
+      "steps": [
+        {
+          "goTo": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "type": {
+            "elementAttribute": {
+              "type": "email",
+              "required": true
+            },
+            "keys": "test@example.com"
+          }
+        }
+      ]
+    },
+    {
+      "testId": "screenshot-with-crop-elementTestId",
+      "steps": [
+        {
+          "goTo": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "screenshot": {
+            "path": "enhanced-modal.png",
+            "crop": {
+              "elementTestId": "modal-close"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "testId": "screenshot-with-crop-elementClass",
+      "steps": [
+        {
+          "goTo": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "screenshot": {
+            "path": "enhanced-modal-large.png",
+            "crop": {
+              "elementClass": ["modal", "modal-visible"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "testId": "multiple-attributes-combined",
+      "steps": [
+        {
+          "goTo": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "find": {
+            "selector": "input",
+            "elementAttribute": {
+              "type": "email",
+              "required": true,
+              "data-validation": "/^email-.+/"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "testId": "first-element-when-multiple-match",
+      "steps": [
+        {
+          "goTo": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "find": {
+            "elementClass": "btn-primary"
+          }
+        }
+      ]
+    },
+    {
+      "testId": "backward-compatibility-selector-only",
+      "steps": [
+        {
+          "goTo": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "click": {
+            "selector": "#submit-button"
+          }
+        }
+      ]
+    },
+    {
+      "testId": "backward-compatibility-selector-and-text",
+      "steps": [
+        {
+          "goTo": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "click": {
+            "selector": "button",
+            "elementText": "Submit Form"
+          }
+        }
+      ]
     }
   ]
 }
