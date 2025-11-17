@@ -29,6 +29,7 @@ const { getEnvironment, getAvailableApps } = require("./config");
 
 exports.runSpecs = runSpecs;
 exports.runViaApi = runViaApi;
+exports.getDriver = getDriver;
 // exports.appiumStart = appiumStart;
 // exports.appiumIsReady = appiumIsReady;
 // exports.driverStart = driverStart;
@@ -790,11 +791,11 @@ async function runSpecs({ resolvedTests }) {
 
 // Run a specific step
 async function runStep({
-  config,
-  context,
+  config = {},
+  context = {},
   step,
   driver,
-  metaValues,
+  metaValues = {},
   options = {},
 }) {
   let actionResult;
@@ -873,7 +874,7 @@ async function runStep({
     };
   }
   // If recording, wait until browser is loaded, then instantiate cursor
-  if (config.recording) {
+  if (config?.recording) {
     const currentUrl = await driver.getUrl();
     if (currentUrl !== driver.state.url) {
       driver.state.url = currentUrl;
@@ -930,4 +931,123 @@ async function driverStart(capabilities) {
   });
   driver.state = { url: "", x: null, y: null };
   return driver;
+}
+
+const platformMap = {
+  win32: "windows",
+  darwin: "mac",
+  linux: "linux",
+};
+
+/**
+ * Creates and returns a Chrome WebDriver instance with an Appium server.
+ * This function is designed for use by external libraries that need a browser driver.
+ *
+ * @param {Object} options - Configuration options for the driver.
+ * @param {Object} [options.config={}] - Doc Detective configuration object for logging.
+ * @param {number} [options.width=1200] - Browser window width in pixels.
+ * @param {number} [options.height=800] - Browser window height in pixels.
+ * @param {boolean} [options.headless=true] - Whether to run browser in headless mode.
+ * @returns {Promise<Object>} Object containing:
+ *   - driver: WebDriver instance for browser automation
+ *   - appium: Appium server process (use kill(appium.pid) to terminate)
+ *   - cleanup: Async function to properly cleanup driver and Appium server
+ * @throws {Error} If Chrome is not available or driver initialization fails
+ *
+ * @example
+ * const { driver, cleanup } = await getDriver({ headless: false });
+ * try {
+ *   await driver.url('https://example.com');
+ *   // ... perform automation tasks
+ * } finally {
+ *   await cleanup();
+ * }
+ */
+async function getDriver(options = {}) {
+  const config = { ...options.config, environment: { platform: platformMap[process.platform] } };
+  const width = options.width || 1200;
+  const height = options.height || 800;
+  const headless = options.headless !== false;
+
+  // Get runner details
+  const runnerDetails = {
+    environment: getEnvironment(),
+    availableApps: await getAvailableApps({ config }),
+  };
+
+  // Check if Chrome is available
+  const chrome = runnerDetails.availableApps.find(
+    (app) => app.name === "chrome"
+  );
+  if (!chrome) {
+    throw new Error(
+      "Chrome browser is not available. Please ensure Chrome is installed and accessible."
+    );
+  }
+
+  // Set Appium home directory
+  setAppiumHome();
+
+  // Start Appium server
+  const appium = spawn("npx", ["appium"], {
+    shell: true,
+    windowsHide: true,
+    cwd: path.join(__dirname, ".."),
+  });
+
+  // Wait for Appium to be ready
+  await appiumIsReady();
+  log(config, "debug", "Appium is ready for external driver.");
+
+  // Get Chrome driver capabilities
+  const caps = getDriverCapabilities({
+    runnerDetails: runnerDetails,
+    name: "chrome",
+    options: {
+      width,
+      height,
+      headless,
+    },
+  });
+
+  // Start the driver
+  let driver;
+  try {
+    driver = await driverStart(caps);
+  } catch (error) {
+    // If driver fails, clean up Appium and rethrow
+    kill(appium.pid);
+    throw new Error(`Failed to start Chrome driver: ${error.message}`);
+  }
+
+  // Set window size
+  try {
+    await driver.setWindowSize(width, height);
+  } catch (error) {
+    log(
+      config,
+      "warning",
+      `Failed to set window size: ${error.message}`
+    );
+  }
+
+  // Create cleanup function
+  const cleanup = async () => {
+    try {
+      if (driver) {
+        await driver.deleteSession();
+      }
+    } catch (error) {
+      log(
+        config,
+        "error",
+        `Failed to delete driver session: ${error.message}`
+      );
+    }
+    if (appium) {
+      kill(appium.pid);
+    }
+  };
+
+  return { driver, appium, cleanup, runStep };
 }

@@ -59,9 +59,6 @@
     "@ffmpeg-installer/win32-ia32": "4.1.0",
     "@ffmpeg-installer/win32-x64": "4.1.0"
   },
-  "overrides": {
-    "sharp": "$sharp"
-  },
   "devDependencies": {
     "depcheck": "^1.4.7",
     "express": "^5.1.0",
