@@ -288,9 +288,16 @@ async function matchesAttributes(element, attributes) {
     const elementAttrValue = await element.getAttribute(attrName);
     
     if (typeof attrValue === 'boolean') {
-      // Boolean: true means attribute exists, false means it doesn't
-      const hasAttribute = elementAttrValue !== null;
-      if (hasAttribute !== attrValue) return false;
+      // Boolean: true means attribute exists (regardless of value), false means it doesn't
+      // Special handling for disabled: disabled="false" as string still means disabled in HTML,
+      // but we check actual element state for disabled attribute
+      if (attrName === 'disabled') {
+        const isDisabled = await element.isEnabled().then(enabled => !enabled);
+        if (isDisabled !== attrValue) return false;
+      } else {
+        const hasAttribute = elementAttrValue !== null;
+        if (hasAttribute !== attrValue) return false;
+      }
     } else if (typeof attrValue === 'number') {
       // Number: exact match
       if (elementAttrValue === null || Number(elementAttrValue) !== attrValue) {
