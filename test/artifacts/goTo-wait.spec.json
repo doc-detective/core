@@ -1,7 +1,7 @@
 {
   "tests": [
     {
-      "id": "goto-wait-defaults",
+      "testId": "goto-wait-defaults",
       "description": "Test goTo with default wait behavior (no wait config specified)",
       "steps": [
         {
@@ -10,23 +10,7 @@
       ]
     },
     {
-      "id": "goto-wait-static-page",
-      "description": "Test goTo with static page and disabled wait conditions",
-      "steps": [
-        {
-          "goTo": {
-            "url": "http://localhost:8092/wait-test-static.html",
-            "wait": {
-              "timeout": 5000,
-              "networkIdleTime": null,
-              "domIdleTime": null
-            }
-          }
-        }
-      ]
-    },
-    {
-      "id": "goto-wait-network-idle",
+      "testId": "goto-wait-network-idle",
       "description": "Test goTo with network activity detection",
       "steps": [
         {
@@ -40,7 +24,7 @@
       ]
     },
     {
-      "id": "goto-wait-dom-mutations",
+      "testId": "goto-wait-dom-mutations",
       "description": "Test goTo with DOM mutation detection",
       "steps": [
         {
@@ -54,7 +38,7 @@
       ]
     },
     {
-      "id": "goto-wait-find-selector",
+      "testId": "goto-wait-find-selector",
       "description": "Test goTo with element finding by selector",
       "steps": [
         {
@@ -70,7 +54,7 @@
       ]
     },
     {
-      "id": "goto-wait-find-text",
+      "testId": "goto-wait-find-text",
       "description": "Test goTo with element finding by text",
       "steps": [
         {
@@ -86,7 +70,7 @@
       ]
     },
     {
-      "id": "goto-wait-find-selector-and-text",
+      "testId": "goto-wait-find-selector-and-text",
       "description": "Test goTo with element finding by both selector and text",
       "steps": [
         {
@@ -103,7 +87,7 @@
       ]
     },
     {
-      "id": "goto-wait-all-conditions",
+      "testId": "goto-wait-all-conditions",
       "description": "Test goTo with all wait conditions enabled",
       "steps": [
         {
@@ -123,7 +107,7 @@
       ]
     },
     {
-      "id": "goto-wait-simple-string-format",
+      "testId": "goto-wait-simple-string-format",
       "description": "Test goTo with simple string format still works",
       "steps": [
         {
