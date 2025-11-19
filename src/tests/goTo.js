@@ -57,7 +57,7 @@ async function goTo({ config, step, driver }) {
   if (step.goTo.waitUntil.domIdleTime === undefined) {
     step.goTo.waitUntil.domIdleTime = 1000;
   }
-  
+
   // Run action
   try {
     await driver.url(step.goTo.url);
@@ -100,7 +100,7 @@ async function goTo({ config, step, driver }) {
         throw new Error("Timeout exceeded before document ready");
       }
 
-      // 2 & 3. Wait for network idle and DOM stable in parallel
+      // 2, 3, & 4. Wait for network idle, DOM stable, and element in parallel
       const parallelChecks = [];
 
       if (
@@ -127,9 +127,16 @@ async function goTo({ config, step, driver }) {
         waitResults.networkIdle.message = "Network idle check skipped (null)";
       }
 
-      if (waitConditions.domStable && step.goTo.waitUntil.domIdleTime !== null) {
+      if (
+        waitConditions.domStable &&
+        step.goTo.waitUntil.domIdleTime !== null
+      ) {
         parallelChecks.push(
-          waitForDOMStable(driver, step.goTo.waitUntil.domIdleTime, remainingTimeout)
+          waitForDOMStable(
+            driver,
+            step.goTo.waitUntil.domIdleTime,
+            remainingTimeout
+          )
             .then(() => {
               waitResults.domStable.passed = true;
               waitResults.domStable.message = `DOM stable (${step.goTo.waitUntil.domIdleTime}ms)`;
@@ -144,64 +151,64 @@ async function goTo({ config, step, driver }) {
         waitResults.domStable.message = "DOM stability check skipped (null)";
       }
 
-      // Wait for both checks to complete
-      if (parallelChecks.length > 0) {
-        await Promise.all(parallelChecks);
-      }
-
-      // Calculate remaining time for element search
-      const elapsedTime3 = Date.now() - waitStartTime;
-      const remainingTimeout3 = waitTimeout - elapsedTime3;
-
-      if (remainingTimeout3 <= 0) {
-        throw new Error("Timeout exceeded after DOM stability check");
-      }
-
-      // 4. Wait for element if specified
+      // Add element search to parallel checks
       if (waitConditions.elementFound && step.goTo.waitUntil.find) {
-        try {
-          // Construct a findElement step with the timeout
-          const findStep = {
-            action: "find",
-            find: {
-              ...step.goTo.waitUntil.find,
-              timeout: remainingTimeout3
+        parallelChecks.push(
+          (async () => {
+            try {
+              // Construct a findElement step with the timeout
+              const findStep = {
+                action: "find",
+                find: {
+                  ...step.goTo.waitUntil.find,
+                  timeout: remainingTimeout,
+                },
+              };
+
+              const findResult = await findElement({
+                config,
+                step: findStep,
+                driver,
+              });
+
+              if (findResult.status === "PASS") {
+                waitResults.elementFound.passed = true;
+                const selectorMsg = step.goTo.waitUntil.find.selector
+                  ? `selector: "${step.goTo.waitUntil.find.selector}"`
+                  : "";
+                const textMsg = step.goTo.waitUntil.find.elementText
+                  ? `text: "${step.goTo.waitUntil.find.elementText}"`
+                  : "";
+                const combinedMsg = [selectorMsg, textMsg]
+                  .filter((m) => m)
+                  .join(", ");
+                waitResults.elementFound.message = `Element found (${combinedMsg})`;
+              } else {
+                throw new Error(findResult.description);
+              }
+            } catch (error) {
+              const selectorMsg = step.goTo.waitUntil.find.selector
+                ? `selector: "${step.goTo.waitUntil.find.selector}"`
+                : "";
+              const textMsg = step.goTo.waitUntil.find.elementText
+                ? `text: "${step.goTo.waitUntil.find.elementText}"`
+                : "";
+              const combinedMsg = [selectorMsg, textMsg]
+                .filter((m) => m)
+                .join(", ");
+              waitResults.elementFound.message = `Element not found (${combinedMsg})`;
+              throw error;
             }
-          };
-          
-          const findResult = await findElement({ config, step: findStep, driver });
-          
-          if (findResult.status === "PASS") {
-            waitResults.elementFound.passed = true;
-            const selectorMsg = step.goTo.waitUntil.find.selector
-              ? `selector: "${step.goTo.waitUntil.find.selector}"`
-              : "";
-            const textMsg = step.goTo.waitUntil.find.elementText
-              ? `text: "${step.goTo.waitUntil.find.elementText}"`
-              : "";
-            const combinedMsg = [selectorMsg, textMsg]
-              .filter((m) => m)
-              .join(", ");
-            waitResults.elementFound.message = `Element found (${combinedMsg})`;
-          } else {
-            throw new Error(findResult.description);
-          }
-        } catch (error) {
-          const selectorMsg = step.goTo.waitUntil.find.selector
-            ? `selector: "${step.goTo.waitUntil.find.selector}"`
-            : "";
-          const textMsg = step.goTo.waitUntil.find.elementText
-            ? `text: "${step.goTo.waitUntil.find.elementText}"`
-            : "";
-          const combinedMsg = [selectorMsg, textMsg]
-            .filter((m) => m)
-            .join(", ");
-          waitResults.elementFound.message = `Element not found (${combinedMsg})`;
-          throw error;
-        }
+          })()
+        );
       } else {
         waitResults.elementFound.passed = true;
         waitResults.elementFound.message = "Element search not requested";
+      }
+
+      // Wait for all checks to complete
+      if (parallelChecks.length > 0) {
+        await Promise.all(parallelChecks);
       }
 
       result.description = "Opened URL and all wait conditions met.";
