@@ -94,7 +94,7 @@ async function goTo({ config, step, driver }) {
       );
       waitResults.documentReady.passed = true;
       waitResults.documentReady.message = "Document ready";
-      await driver.pause(100); // Small pause to ensure stability
+      await driver.pause(100); // Small pause to allow for rendering
 
       // Calculate remaining time
       const elapsedTime = Date.now() - waitStartTime;
@@ -333,7 +333,7 @@ async function waitForNetworkIdle(driver, idleTime, timeout) {
       break; // Network idle achieved
     }
 
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 200));
   }
 }
 
@@ -428,7 +428,7 @@ async function waitForDOMStable(driver, idleTime, timeout) {
         break; // DOM stable achieved
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 200));
     }
   } catch (error) {
     throw new Error(`DOM stability check failed: ${error.message}`);
