@@ -1,6 +1,6 @@
 const { validate } = require("doc-detective-common");
 const {
-  findElementBySelectorOrText,
+  findElementByShorthand,
   findElementBySelectorAndText,
   findElementByCriteria,
   setElementOutputs,
@@ -32,7 +32,7 @@ async function findElement({ config, step, driver }) {
 
   // Handle combo selector/text string
   if (typeof step.find === "string") {
-    const { element, foundBy } = await findElementBySelectorOrText({
+    const { element, foundBy } = await findElementByShorthand({
       string: step.find,
       driver,
     });
@@ -71,80 +71,31 @@ async function findElement({ config, step, driver }) {
 
   // Find element (and match text and other criteria)
   let element;
-  
-  // Check if any of the new criteria are being used
-  const hasNewCriteria = step.find.elementId || step.find.elementTestId || 
-                         step.find.elementClass || step.find.elementAttribute || 
-                         step.find.elementAria;
-  
-  if (hasNewCriteria || (step.find.selector && step.find.elementText)) {
-    // Use the new comprehensive finding function
-    const { element: foundElement, foundBy, error } = await findElementByCriteria({
-      selector: step.find.selector || undefined,
-      elementText: step.find.elementText || undefined,
-      elementId: step.find.elementId,
-      elementTestId: step.find.elementTestId,
-      elementClass: step.find.elementClass,
-      elementAttribute: step.find.elementAttribute,
-      elementAria: step.find.elementAria,
-      timeout: step.find.timeout,
-      driver,
-    });
-    
-    if (!foundElement) {
-      result.status = "FAIL";
-      result.description = error || "No elements matched criteria.";
-      return result;
-    }
-    element = foundElement;
-    result.description += ` Found element by ${foundBy}.`;
-  } else if (step.find.selector && step.find.elementText) {
-    const { element: foundElement, foundBy } =
-      await findElementBySelectorAndText({
-        selector: step.find.selector,
-        text: step.find.elementText,
-        timeout: step.find.timeout,
-        driver,
-      });
-    if (foundElement) {
-      element = foundElement;
-      result.outputs.element = element;
-      result.description += ` Found element by ${foundBy}.`;
-    } else {
-      // No matching elements
-      result.status = "FAIL";
-      result.description = "No elements matched selector and text.";
-      return result;
-    }
-  } else if (step.find.selector) {
-    // Enter a loop, checking for element periodically until timeout
-    const startTime = Date.now();
-    while (Date.now() - startTime < step.find.timeout) {
-      element = await driver.$(step.find.selector);
-      if (element.elementId) {
-        break;
-      }
-      // Wait 100ms before trying again
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
-  } else if (step.find.elementText) {
-    const startTime = Date.now();
-    while (Date.now() - startTime < step.find.timeout) {
-      element = await driver.$(
-        `//*[normalize-space(text())="${step.find.elementText}"]`
-      );
-      if (element.elementId) {
-        break;
-      }
-      // Wait 100ms before trying again
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
-  } else {
-    // No selector or text
+
+  // Use the new comprehensive finding function
+  const {
+    element: foundElement,
+    foundBy,
+    error,
+  } = await findElementByCriteria({
+    selector: step.find.selector || undefined,
+    elementText: step.find.elementText || undefined,
+    elementId: step.find.elementId,
+    elementTestId: step.find.elementTestId,
+    elementClass: step.find.elementClass,
+    elementAttribute: step.find.elementAttribute,
+    elementAria: step.find.elementAria,
+    timeout: step.find.timeout,
+    driver,
+  });
+
+  if (!foundElement) {
     result.status = "FAIL";
-    result.description = "No selector or text provided.";
+    result.description = error || "No elements matched criteria.";
     return result;
   }
+  element = foundElement;
+  result.description += ` Found element by ${foundBy}.`;
 
   // No matching elements
   if (!element.elementId) {

@@ -1,7 +1,7 @@
 const { validate } = require("doc-detective-common");
 const {
   findElementBySelectorAndText,
-  findElementBySelectorOrText,
+  findElementByShorthand,
   setElementOutputs,
 } = require("./findStrategies");
 const { log } = require("../utils");
@@ -110,7 +110,7 @@ async function dragAndDropElement({ config, step, driver, element }) {
     } else {
       // Fallback to simple selector/text search
       const { element: foundElement, foundBy } =
-        await findElementBySelectorOrText({
+        await findElementByShorthand({
           string: elementSpec.selector || elementSpec.elementText,
           driver,
         });

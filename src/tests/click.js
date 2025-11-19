@@ -1,7 +1,7 @@
 const { validate } = require("doc-detective-common");
 const {
   findElementBySelectorAndText,
-  findElementBySelectorOrText,
+  findElementByShorthand,
   findElementByCriteria,
   setElementOutputs,
 } = require("./findStrategies");
@@ -39,7 +39,7 @@ async function clickElement({ config, step, driver, element }) {
     // Handle combo selector/text string
     if (typeof step.click === "string") {
       const { element: foundElement, foundBy } =
-        await findElementBySelectorOrText({
+        await findElementByShorthand({
           string: step.click,
           driver,
         });
@@ -90,8 +90,8 @@ async function clickElement({ config, step, driver, element }) {
         }
         element = foundElement;
         result.description += ` Found element by ${foundBy}.`;
-      } else {
-        // Use legacy logic for backward compatibility
+      } else if (step.click.selector && step.click.elementText) {
+        // Use legacy logic for backward compatibility when both selector and text are provided
         const { element: foundElement, foundBy } =
           await findElementBySelectorAndText({
             selector: step.click.selector,
@@ -106,6 +106,27 @@ async function clickElement({ config, step, driver, element }) {
         }
         element = foundElement;
         result.description += ` Found element by ${foundBy}.`;
+      } else if (step.click.selector) {
+        // Selector only - simple find
+        const timeout = step.click.timeout || 5000;
+        const startTime = Date.now();
+        while (Date.now() - startTime < timeout) {
+          element = await driver.$(step.click.selector);
+          if (element.elementId) {
+            break;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+        if (!element?.elementId) {
+          result.status = "FAIL";
+          result.description = `Couldn't find element.`;
+          return result;
+        }
+        result.description += ` Found element by selector.`;
+      } else {
+        result.status = "FAIL";
+        result.description = `No selector or finding criteria provided.`;
+        return result;
       }
     }
   }
