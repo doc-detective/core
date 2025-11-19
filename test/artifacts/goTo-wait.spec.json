@@ -1,22 +1,22 @@
 {
   "tests": [
     {
-      "testId": "goto-wait-defaults",
-      "description": "Test goTo with default wait behavior (no wait config specified)",
+      "testId": "goto-waitUntil-defaults",
+      "description": "Test goTo with default waitUntil behavior (no waitUntil config specified)",
       "steps": [
         {
-          "goTo": "http://localhost:8092/wait-test-static.html"
+          "goTo": "http://localhost:8092/waitUntil-test-static.html"
         }
       ]
     },
     {
-      "testId": "goto-wait-network-idle",
+      "testId": "goto-waitUntil-network-idle",
       "description": "Test goTo with network activity detection",
       "steps": [
         {
           "goTo": {
-            "url": "http://localhost:8092/wait-test-network.html",
-            "wait": {
+            "url": "http://localhost:8092/waitUntil-test-network.html",
+            "waitUntil": {
               "networkIdleTime": 500
             }
           }
@@ -24,13 +24,13 @@
       ]
     },
     {
-      "testId": "goto-wait-dom-mutations",
+      "testId": "goto-waitUntil-dom-mutations",
       "description": "Test goTo with DOM mutation detection",
       "steps": [
         {
           "goTo": {
-            "url": "http://localhost:8092/wait-test-dom-mutations.html",
-            "wait": {
+            "url": "http://localhost:8092/waitUntil-test-dom-mutations.html",
+            "waitUntil": {
               "domIdleTime": 1000
             }
           }
@@ -38,13 +38,13 @@
       ]
     },
     {
-      "testId": "goto-wait-find-selector",
+      "testId": "goto-waitUntil-find-selector",
       "description": "Test goTo with element finding by selector",
       "steps": [
         {
           "goTo": {
-            "url": "http://localhost:8092/wait-test-late-element.html",
-            "wait": {
+            "url": "http://localhost:8092/waitUntil-test-late-element.html",
+            "waitUntil": {
               "find": {
                 "selector": "[data-testid='dashboard-loaded']"
               }
@@ -54,13 +54,13 @@
       ]
     },
     {
-      "testId": "goto-wait-find-text",
+      "testId": "goto-waitUntil-find-text",
       "description": "Test goTo with element finding by text",
       "steps": [
         {
           "goTo": {
-            "url": "http://localhost:8092/wait-test-late-element.html",
-            "wait": {
+            "url": "http://localhost:8092/waitUntil-test-late-element.html",
+            "waitUntil": {
               "find": {
                 "elementText": "System operational"
               }
@@ -70,13 +70,13 @@
       ]
     },
     {
-      "testId": "goto-wait-find-selector-and-text",
+      "testId": "goto-waitUntil-find-selector-and-text",
       "description": "Test goTo with element finding by both selector and text",
       "steps": [
         {
           "goTo": {
-            "url": "http://localhost:8092/wait-test-late-element.html",
-            "wait": {
+            "url": "http://localhost:8092/waitUntil-test-late-element.html",
+            "waitUntil": {
               "find": {
                 "selector": ".dashboard-loaded",
                 "elementText": "Dashboard"
@@ -87,14 +87,14 @@
       ]
     },
     {
-      "testId": "goto-wait-all-conditions",
-      "description": "Test goTo with all wait conditions enabled",
+      "testId": "goto-waitUntil-all-conditions",
+      "description": "Test goTo with all waitUntil conditions enabled",
       "steps": [
         {
           "goTo": {
-            "url": "http://localhost:8092/wait-test-late-element.html",
-            "wait": {
-              "timeout": 10000,
+            "url": "http://localhost:8092/waitUntil-test-late-element.html",
+            "timeout": 10000,
+            "waitUntil": {
               "networkIdleTime": 500,
               "domIdleTime": 1000,
               "find": {
@@ -107,11 +107,11 @@
       ]
     },
     {
-      "testId": "goto-wait-simple-string-format",
+      "testId": "goto-waitUntil-simple-string-format",
       "description": "Test goTo with simple string format still works",
       "steps": [
         {
-          "goTo": "http://localhost:8092/wait-test-static.html"
+          "goTo": "http://localhost:8092/waitUntil-test-static.html"
         }
       ]
     }
