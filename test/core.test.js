@@ -168,4 +168,48 @@ describe("Run tests successfully", function () {
       fs.unlinkSync(tempFilePath);
     }
   });
+
+  it("runShell regression test returns WARNING when variation exceeds threshold", async () => {
+    // Create a test file path
+    const outputFilePath = path.resolve("./test/temp-regression-output.txt");
+    
+    // Create initial file with content
+    fs.writeFileSync(outputFilePath, "initial content");
+    
+    const regressionTest = {
+      tests: [
+        {
+          steps: [
+            {
+              runShell: {
+                command: "echo",
+                args: ["completely different content"],
+                path: outputFilePath,
+                maxVariation: 0.1,
+                overwrite: "aboveVariation"
+              }
+            }
+          ]
+        }
+      ]
+    };
+    
+    const tempFilePath = path.resolve("./test/temp-regression-test.json");
+    fs.writeFileSync(tempFilePath, JSON.stringify(regressionTest, null, 2));
+    const config = { input: tempFilePath, logLevel: "silent" };
+    let result;
+    try {
+      result = await runTests(config);
+      // Verify that the step is marked as WARNING, not FAIL
+      assert.equal(result.summary.steps.warning, 1);
+      assert.equal(result.summary.steps.fail, 0);
+      assert.equal(result.specs[0].tests[0].contexts[0].steps[0].result, "WARNING");
+    } finally {
+      // Ensure cleanup even on failure
+      fs.unlinkSync(tempFilePath);
+      if (fs.existsSync(outputFilePath)) {
+        fs.unlinkSync(outputFilePath);
+      }
+    }
+  });
 });
