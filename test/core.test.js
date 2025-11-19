@@ -212,4 +212,87 @@ describe("Run tests successfully", function () {
       }
     }
   });
+
+  it("screenshot regression test returns WARNING when variation exceeds threshold", async () => {
+    // Create a test screenshot path
+    const screenshotPath = path.resolve("./test/temp-regression-screenshot.png");
+    const screenshotDir = path.dirname(screenshotPath);
+    
+    // Ensure directory exists
+    if (!fs.existsSync(screenshotDir)) {
+      fs.mkdirSync(screenshotDir, { recursive: true });
+    }
+    
+    // First, create an initial screenshot
+    const initialTest = {
+      tests: [
+        {
+          steps: [
+            {
+              goTo: "http://localhost:8092"
+            },
+            {
+              screenshot: {
+                path: screenshotPath,
+                maxVariation: 0.05,
+                overwrite: "false"
+              }
+            }
+          ]
+        }
+      ]
+    };
+    
+    const tempInitialFilePath = path.resolve("./test/temp-initial-screenshot-test.json");
+    fs.writeFileSync(tempInitialFilePath, JSON.stringify(initialTest, null, 2));
+    const initialConfig = { input: tempInitialFilePath, logLevel: "silent" };
+    
+    try {
+      // Run initial test to create the baseline screenshot
+      await runTests(initialConfig);
+      
+      // Now create a test that navigates to a different page to create variation
+      const regressionTest = {
+        tests: [
+          {
+            steps: [
+              {
+                goTo: "http://localhost:8092/drag-drop-test.html"
+              },
+              {
+                screenshot: {
+                  path: screenshotPath,
+                  maxVariation: 0.05,
+                  overwrite: "aboveVariation"
+                }
+              }
+            ]
+          }
+        ]
+      };
+      
+      const tempFilePath = path.resolve("./test/temp-screenshot-regression-test.json");
+      fs.writeFileSync(tempFilePath, JSON.stringify(regressionTest, null, 2));
+      const config = { input: tempFilePath, logLevel: "silent" };
+      
+      const result = await runTests(config);
+      
+      // Verify that the step is marked as WARNING, not FAIL
+      assert.equal(result.summary.steps.warning, 1);
+      assert.equal(result.summary.steps.fail, 0);
+      assert.equal(result.specs[0].tests[0].contexts[0].steps[1].result, "WARNING");
+      
+      // Cleanup test files
+      fs.unlinkSync(tempFilePath);
+      fs.unlinkSync(tempInitialFilePath);
+    } finally {
+      // Ensure cleanup even on failure
+      if (fs.existsSync(tempInitialFilePath)) {
+        fs.unlinkSync(tempInitialFilePath);
+      }
+      if (fs.existsSync(screenshotPath)) {
+        fs.unlinkSync(screenshotPath);
+      }
+    }
+  });
 });
