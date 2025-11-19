@@ -118,10 +118,9 @@ async function findElementByTestIdRegex({ pattern, timeout, driver }) {
   return { element: null, foundBy: null };
 }
 
-async function findElementByShorthand({ string, driver }) {
+async function findElementByShorthand({ string, timeout = 5000, driver }) {
   // Find an element based on a string that could be a selector, text, aria label, id, or test id
   // Uses parallel search with precedence: selector > elementText > elementAria > elementId > elementTestId
-  const timeout = 5000;
 
   // If regex, find element by regex across all attribute types
   if (string.startsWith("/") && string.endsWith("/")) {
@@ -388,6 +387,7 @@ async function findElementByCriteria({
 
   const startTime = Date.now();
   const pollingInterval = 100; // Check every 100ms
+  let results = [];
 
   // Poll for elements until timeout
   while (Date.now() - startTime < timeout) {
@@ -405,7 +405,7 @@ async function findElementByCriteria({
       }
 
       // Filter candidates by all criteria
-      const matchedElements = candidates.map(async (element) => {
+      const matchedElementPromises = candidates.map(async (element) => {
         // Check if element is valid and exists in DOM
         try {
           await element.isExisting(); // This will throw if element doesn't exist
@@ -482,16 +482,16 @@ async function findElementByCriteria({
       });
 
       // Wait for all element checks to complete
-      const results = await Promise.all(matchedElements);
-      candidates = results.filter((el) => el !== null);
+      const matchedElements = await matchedElementPromises;
+      results = await matchedElements.filter((el) => el !== null);
     } catch (error) {
       console.error("Error finding elements:", error);
     }
 
     // If we found matching elements, return the first one
-    if (candidates.length > 0) {
+    if (results.length > 0) {
       return {
-        element: candidates[0],
+        element: results[0],
         foundBy: criteriaUsed,
         error: null,
       };
