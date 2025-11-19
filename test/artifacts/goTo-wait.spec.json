@@ -99,7 +99,7 @@
               "domIdleTime": 1000,
               "find": {
                 "selector": ".status",
-                "elementText": "operational"
+                "elementText": "/.*operational.*/"
               }
             }
           }

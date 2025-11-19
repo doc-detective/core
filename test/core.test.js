@@ -168,4 +168,99 @@ describe("Run tests successfully", function () {
       fs.unlinkSync(tempFilePath);
     }
   });
+
+  it("goTo fails with timeout on network idle check", async () => {
+    const networkTimeoutTest = {
+      tests: [
+        {
+          steps: [
+            {
+              goTo: {
+                url: "http://localhost:8092/waitUntil-test-network-forever.html",
+                timeout: 5000,
+                waitUntil: {
+                  networkIdleTime: 500
+                }
+              }
+            }
+          ]
+        }
+      ]
+    };
+    const tempFilePath = path.resolve("./test/temp-network-timeout-test.json");
+    fs.writeFileSync(tempFilePath, JSON.stringify(networkTimeoutTest, null, 2));
+    const config = { input: tempFilePath, logLevel: "silent" };
+    let result;
+    try {
+      result = await runTests(config);
+      assert.equal(result.summary.steps.fail, 1);
+      assert.equal(result.summary.tests.fail, 1);
+    } finally {
+      fs.unlinkSync(tempFilePath);
+    }
+  });
+
+  it("goTo fails with timeout on DOM idle check", async () => {
+    const domTimeoutTest = {
+      tests: [
+        {
+          steps: [
+            {
+              goTo: {
+                url: "http://localhost:8092/waitUntil-test-dom-mutations-forever.html",
+                timeout: 5000,
+                waitUntil: {
+                  domIdleTime: 500
+                }
+              }
+            }
+          ]
+        }
+      ]
+    };
+    const tempFilePath = path.resolve("./test/temp-dom-timeout-test.json");
+    fs.writeFileSync(tempFilePath, JSON.stringify(domTimeoutTest, null, 2));
+    const config = { input: tempFilePath, logLevel: "silent" };
+    let result;
+    try {
+      result = await runTests(config);
+      assert.equal(result.summary.steps.fail, 1);
+      assert.equal(result.summary.tests.fail, 1);
+    } finally {
+      fs.unlinkSync(tempFilePath);
+    }
+  });
+
+  it("goTo fails with timeout on element finding check", async () => {
+    const elementTimeoutTest = {
+      tests: [
+        {
+          steps: [
+            {
+              goTo: {
+                url: "http://localhost:8092/index.html",
+                timeout: 5000,
+                waitUntil: {
+                  find: {
+                    selector: ".nonexistent-element-that-will-never-appear"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    };
+    const tempFilePath = path.resolve("./test/temp-element-timeout-test.json");
+    fs.writeFileSync(tempFilePath, JSON.stringify(elementTimeoutTest, null, 2));
+    const config = { input: tempFilePath, logLevel: "silent" };
+    let result;
+    try {
+      result = await runTests(config);
+      assert.equal(result.summary.steps.fail, 1);
+      assert.equal(result.summary.tests.fail, 1);
+    } finally {
+      fs.unlinkSync(tempFilePath);
+    }
+  });
 });
