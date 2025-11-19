@@ -341,50 +341,94 @@ async function waitForNetworkIdle(driver, idleTime, timeout) {
  * Uses MutationObserver to detect changes.
  */
 async function waitForDOMStable(driver, idleTime, timeout) {
+  const startTime = Date.now(); // Only for Node.js timeout tracking
+
+  // Initialize monitor with browser time only
+  await driver.execute(() => {
+    if (!window.__docDetectiveDOMMonitor) {
+      window.__docDetectiveDOMMonitor = {
+        lastMutationTime: Date.now(), // Use browser time
+        mutationCount: 0,
+        startTime: Date.now(), // Track start in browser
+        observer: null,
+      };
+
+      const observer = new MutationObserver(() => {
+        window.__docDetectiveDOMMonitor.lastMutationTime = Date.now();
+        window.__docDetectiveDOMMonitor.mutationCount++;
+      });
+
+      // Observe all changes to the body and its descendants
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        characterData: true,
+      });
+
+      window.__docDetectiveDOMMonitor.observer = observer;
+    }
+  });
+
+  // Fast path: check after 100ms
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  const initialCheck = await driver.execute(() => {
+    const monitor = window.__docDetectiveDOMMonitor;
+    const now = Date.now();
+    return {
+      idleFor: now - monitor.lastMutationTime,
+      mutationCount: monitor.mutationCount,
+    };
+  });
+
+  if (initialCheck.idleFor >= 100 && initialCheck.mutationCount === 0) {
+    // Clean up observer
+    await driver.execute(() => {
+      if (window.__docDetectiveDOMMonitor?.observer) {
+        window.__docDetectiveDOMMonitor.observer.disconnect();
+        delete window.__docDetectiveDOMMonitor;
+      }
+    });
+    return; // Fast path
+  }
+
+  // Poll with browser-based time checks
   try {
-    await driver.execute(
-      (idleMs, timeoutMs) => {
-        return new Promise((resolve, reject) => {
-          const startTime = Date.now();
-          let lastMutationTime = Date.now();
-          let mutationCount = 0;
-
-          const observer = new MutationObserver(() => {
-            lastMutationTime = Date.now();
-            mutationCount++;
-          });
-
-          // Observe all changes to the body and its descendants
-          observer.observe(document.body, {
-            childList: true,
-            subtree: true,
-            attributes: true,
-            characterData: true,
-          });
-
-          const checkInterval = setInterval(() => {
-            const elapsed = Date.now() - startTime;
-            const idleFor = Date.now() - lastMutationTime;
-
-            if (idleFor >= idleMs) {
-              clearInterval(checkInterval);
-              observer.disconnect();
-              resolve({ mutationCount, elapsed });
-            } else if (elapsed >= timeoutMs) {
-              clearInterval(checkInterval);
-              observer.disconnect();
-              reject(
-                new Error(
-                  `Still mutating (${mutationCount} mutations in last ${idleMs}ms)`
-                )
-              );
-            }
-          }, 100);
+    while (true) {
+      if (Date.now() - startTime > timeout) {
+        // Clean up observer before throwing
+        await driver.execute(() => {
+          if (window.__docDetectiveDOMMonitor?.observer) {
+            window.__docDetectiveDOMMonitor.observer.disconnect();
+            delete window.__docDetectiveDOMMonitor;
+          }
         });
-      },
-      idleTime,
-      timeout
-    );
+        throw new Error("DOM stability timeout exceeded");
+      }
+
+      const state = await driver.execute(() => {
+        const monitor = window.__docDetectiveDOMMonitor;
+        const now = Date.now();
+        return {
+          idleFor: now - monitor.lastMutationTime,
+          elapsedTotal: now - monitor.startTime,
+          mutationCount: monitor.mutationCount,
+        };
+      });
+
+      if (state.idleFor >= idleTime) {
+        // Clean up observer
+        await driver.execute(() => {
+          if (window.__docDetectiveDOMMonitor?.observer) {
+            window.__docDetectiveDOMMonitor.observer.disconnect();
+            delete window.__docDetectiveDOMMonitor;
+          }
+        });
+        break; // DOM stable achieved
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
   } catch (error) {
     throw new Error(`DOM stability check failed: ${error.message}`);
   }
