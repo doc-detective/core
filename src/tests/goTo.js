@@ -94,6 +94,7 @@ async function goTo({ config, step, driver }) {
       );
       waitResults.documentReady.passed = true;
       waitResults.documentReady.message = "Document ready";
+      await driver.pause(100); // Small pause to ensure stability
 
       // Calculate remaining time
       const elapsedTime = Date.now() - waitStartTime;
