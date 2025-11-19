@@ -1,5 +1,6 @@
 const { validate } = require("doc-detective-common");
 const { isRelativeUrl } = require("../utils");
+const { findElement } = require("./findElement");
 
 exports.goTo = goTo;
 
@@ -40,38 +41,35 @@ async function goTo({ config, step, driver }) {
     return result;
   }
 
-  // Apply default wait configuration if not specified
-  if (!step.goTo.wait) {
-    step.goTo.wait = {
-      timeout: 30000,
+  // Apply defaults if not specified
+  step.goTo = {
+    ...step.goTo,
+    timeout: step.goTo.timeout || 30000,
+    waitUntil: step.goTo.waitUntil || {
       networkIdleTime: 500,
       domIdleTime: 1000,
-    };
-  } else {
-    // Fill in defaults for any missing properties
-    if (step.goTo.wait.timeout === undefined) {
-      step.goTo.wait.timeout = 30000;
-    }
-    if (step.goTo.wait.networkIdleTime === undefined) {
-      step.goTo.wait.networkIdleTime = 500;
-    }
-    if (step.goTo.wait.domIdleTime === undefined) {
-      step.goTo.wait.domIdleTime = 1000;
-    }
+    },
+  };
+  // Fill in defaults for any missing properties
+  if (step.goTo.waitUntil.networkIdleTime === undefined) {
+    step.goTo.waitUntil.networkIdleTime = 500;
   }
-
+  if (step.goTo.waitUntil.domIdleTime === undefined) {
+    step.goTo.waitUntil.domIdleTime = 1000;
+  }
+  
   // Run action
   try {
     await driver.url(step.goTo.url);
 
     // Wait for page to load with wait logic
     const waitStartTime = Date.now();
-    const waitTimeout = step.goTo.wait.timeout;
+    const waitTimeout = step.goTo.timeout;
     const waitConditions = {
       documentReady: false,
-      networkIdle: step.goTo.wait.networkIdleTime !== null,
-      domStable: step.goTo.wait.domIdleTime !== null,
-      elementFound: !!step.goTo.wait.find,
+      networkIdle: step.goTo.waitUntil.networkIdleTime !== null,
+      domStable: step.goTo.waitUntil.domIdleTime !== null,
+      elementFound: !!step.goTo.waitUntil.find,
     };
     const waitResults = {
       documentReady: { passed: false, message: "" },
@@ -107,17 +105,17 @@ async function goTo({ config, step, driver }) {
 
       if (
         waitConditions.networkIdle &&
-        step.goTo.wait.networkIdleTime !== null
+        step.goTo.waitUntil.networkIdleTime !== null
       ) {
         parallelChecks.push(
           waitForNetworkIdle(
             driver,
-            step.goTo.wait.networkIdleTime,
+            step.goTo.waitUntil.networkIdleTime,
             remainingTimeout
           )
             .then(() => {
               waitResults.networkIdle.passed = true;
-              waitResults.networkIdle.message = `Network idle (${step.goTo.wait.networkIdleTime}ms)`;
+              waitResults.networkIdle.message = `Network idle (${step.goTo.waitUntil.networkIdleTime}ms)`;
             })
             .catch((error) => {
               waitResults.networkIdle.message = `Network idle timeout: ${error.message}`;
@@ -129,12 +127,12 @@ async function goTo({ config, step, driver }) {
         waitResults.networkIdle.message = "Network idle check skipped (null)";
       }
 
-      if (waitConditions.domStable && step.goTo.wait.domIdleTime !== null) {
+      if (waitConditions.domStable && step.goTo.waitUntil.domIdleTime !== null) {
         parallelChecks.push(
-          waitForDOMStable(driver, step.goTo.wait.domIdleTime, remainingTimeout)
+          waitForDOMStable(driver, step.goTo.waitUntil.domIdleTime, remainingTimeout)
             .then(() => {
               waitResults.domStable.passed = true;
-              waitResults.domStable.message = `DOM stable (${step.goTo.wait.domIdleTime}ms)`;
+              waitResults.domStable.message = `DOM stable (${step.goTo.waitUntil.domIdleTime}ms)`;
             })
             .catch((error) => {
               waitResults.domStable.message = `DOM stability timeout: ${error.message}`;
@@ -160,26 +158,40 @@ async function goTo({ config, step, driver }) {
       }
 
       // 4. Wait for element if specified
-      if (waitConditions.elementFound && step.goTo.wait.find) {
+      if (waitConditions.elementFound && step.goTo.waitUntil.find) {
         try {
-          await waitForElement(driver, step.goTo.wait.find, remainingTimeout3);
-          waitResults.elementFound.passed = true;
-          const selectorMsg = step.goTo.wait.find.selector
-            ? `selector: "${step.goTo.wait.find.selector}"`
-            : "";
-          const textMsg = step.goTo.wait.find.elementText
-            ? `text: "${step.goTo.wait.find.elementText}"`
-            : "";
-          const combinedMsg = [selectorMsg, textMsg]
-            .filter((m) => m)
-            .join(", ");
-          waitResults.elementFound.message = `Element found (${combinedMsg})`;
+          // Construct a findElement step with the timeout
+          const findStep = {
+            action: "find",
+            find: {
+              ...step.goTo.waitUntil.find,
+              timeout: remainingTimeout3
+            }
+          };
+          
+          const findResult = await findElement({ config, step: findStep, driver });
+          
+          if (findResult.status === "PASS") {
+            waitResults.elementFound.passed = true;
+            const selectorMsg = step.goTo.waitUntil.find.selector
+              ? `selector: "${step.goTo.waitUntil.find.selector}"`
+              : "";
+            const textMsg = step.goTo.waitUntil.find.elementText
+              ? `text: "${step.goTo.waitUntil.find.elementText}"`
+              : "";
+            const combinedMsg = [selectorMsg, textMsg]
+              .filter((m) => m)
+              .join(", ");
+            waitResults.elementFound.message = `Element found (${combinedMsg})`;
+          } else {
+            throw new Error(findResult.description);
+          }
         } catch (error) {
-          const selectorMsg = step.goTo.wait.find.selector
-            ? `selector: "${step.goTo.wait.find.selector}"`
+          const selectorMsg = step.goTo.waitUntil.find.selector
+            ? `selector: "${step.goTo.waitUntil.find.selector}"`
             : "";
-          const textMsg = step.goTo.wait.find.elementText
-            ? `text: "${step.goTo.wait.find.elementText}"`
+          const textMsg = step.goTo.waitUntil.find.elementText
+            ? `text: "${step.goTo.waitUntil.find.elementText}"`
             : "";
           const combinedMsg = [selectorMsg, textMsg]
             .filter((m) => m)
@@ -371,68 +383,5 @@ async function waitForDOMStable(driver, idleTime, timeout) {
     );
   } catch (error) {
     throw new Error(`DOM stability check failed: ${error.message}`);
-  }
-}
-
-/**
- * Wait for an element matching the find criteria to exist.
- * Supports selector-based and text-based finding.
- */
-async function waitForElement(driver, findConfig, timeout) {
-  const { selector, elementText } = findConfig;
-
-  if (selector && elementText) {
-    // Wait for element matching selector AND containing text
-    const element = await driver.$(selector);
-    await element.waitForExist({ timeout });
-
-    // Check if element contains the text
-    const startTime = Date.now();
-    while (true) {
-      if (Date.now() - startTime > timeout) {
-        throw new Error(
-          `Element found but does not contain text: "${elementText}"`
-        );
-      }
-
-      const text = await element.getText();
-      if (text.includes(elementText)) {
-        break;
-      }
-
-      await driver.pause(100);
-    }
-  } else if (selector) {
-    // Wait for element matching selector
-    const element = await driver.$(selector);
-    await element.waitForExist({ timeout });
-  } else if (elementText) {
-    // Wait for any element containing text
-    const startTime = Date.now();
-    while (true) {
-      if (Date.now() - startTime > timeout) {
-        throw new Error(`No element found containing text: "${elementText}"`);
-      }
-
-      const found = await driver.execute((text) => {
-        const walker = document.createTreeWalker(
-          document.body,
-          NodeFilter.SHOW_TEXT,
-          null
-        );
-        while (walker.nextNode()) {
-          if (walker.currentNode.textContent.includes(text)) {
-            return true;
-          }
-        }
-        return false;
-      }, elementText);
-
-      if (found) {
-        break;
-      }
-
-      await driver.pause(100);
-    }
   }
 }
