@@ -41,6 +41,9 @@ async function goTo({ config, step, driver }) {
     return result;
   }
 
+  // Use the validated object
+  step = isValidStep.object;
+
   // Apply defaults if not specified
   step.goTo = {
     ...step.goTo,
@@ -268,19 +271,17 @@ async function goTo({ config, step, driver }) {
  * Uses a polling approach to check for network requests.
  */
 async function waitForNetworkIdle(driver, idleTime, timeout) {
-  const startTime = Date.now();
-  let lastRequestTime = Date.now();
-  let requestCount = 0;
+  const startTime = Date.now(); // Only for Node.js timeout tracking
 
-  // Use WebDriverIO's execute to set up network monitoring
-  await driver.execute((startTimeMs) => {
+  // Initialize monitor with browser time only
+  await driver.execute(() => {
     if (!window.__docDetectiveNetworkMonitor) {
       window.__docDetectiveNetworkMonitor = {
-        lastRequestTime: startTimeMs,
+        lastRequestTime: Date.now(), // Use browser time
         requestCount: 0,
+        startTime: Date.now(), // Track start in browser
       };
 
-      // Monitor fetch requests
       const originalFetch = window.fetch;
       window.fetch = function (...args) {
         window.__docDetectiveNetworkMonitor.lastRequestTime = Date.now();
@@ -288,7 +289,6 @@ async function waitForNetworkIdle(driver, idleTime, timeout) {
         return originalFetch.apply(this, args);
       };
 
-      // Monitor XHR requests
       const originalOpen = XMLHttpRequest.prototype.open;
       XMLHttpRequest.prototype.open = function (...args) {
         window.__docDetectiveNetworkMonitor.lastRequestTime = Date.now();
@@ -296,46 +296,43 @@ async function waitForNetworkIdle(driver, idleTime, timeout) {
         return originalOpen.apply(this, args);
       };
     }
-  }, Date.now());
-
-  // Fast path: if no network activity detected for 100ms, skip
-  await driver.pause(100);
-  const monitorState = await driver.execute(() => {
-    return (
-      window.__docDetectiveNetworkMonitor || {
-        lastRequestTime: Date.now(),
-        requestCount: 0,
-      }
-    );
   });
 
-  if (
-    Date.now() - monitorState.lastRequestTime >= 100 &&
-    monitorState.requestCount === 0
-  ) {
-    // No network activity detected, fast path
-    return;
+  // Fast path: check after 100ms
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  const initialCheck = await driver.execute(() => {
+    const monitor = window.__docDetectiveNetworkMonitor;
+    const now = Date.now();
+    return {
+      idleFor: now - monitor.lastRequestTime,
+      requestCount: monitor.requestCount,
+    };
+  });
+
+  if (initialCheck.idleFor >= 100 && initialCheck.requestCount === 0) {
+    return; // Fast path
   }
 
-  // Poll until network has been idle for the specified duration
+  // Poll with browser-based time checks
   while (true) {
     if (Date.now() - startTime > timeout) {
       throw new Error("Network idle timeout exceeded");
     }
 
-    const monitorState = await driver.execute(() => {
-      return (
-        window.__docDetectiveNetworkMonitor || { lastRequestTime: Date.now() }
-      );
+    const state = await driver.execute(() => {
+      const monitor = window.__docDetectiveNetworkMonitor;
+      const now = Date.now();
+      return {
+        idleFor: now - monitor.lastRequestTime,
+        elapsedTotal: now - monitor.startTime,
+      };
     });
 
-    const idleFor = Date.now() - monitorState.lastRequestTime;
-    if (idleFor >= idleTime) {
-      // Network has been idle long enough
-      break;
+    if (state.idleFor >= idleTime) {
+      break; // Network idle achieved
     }
 
-    await driver.pause(100);
+    await new Promise((resolve) => setTimeout(resolve, 100));
   }
 }
 
