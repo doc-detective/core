@@ -111,3 +111,8 @@ browser-snapshots
 
 # Test output artifacts
 test/artifacts/output/
+test/artifacts/static/
+
+# Test screenshot artifacts
+image.png
+screenshot-*.png
