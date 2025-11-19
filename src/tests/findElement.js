@@ -89,17 +89,28 @@ async function findElement({ config, step, driver }) {
       return result;
     }
   } else if (step.find.selector) {
-    element = await driver.$(step.find.selector);
-    try {
-      await element.waitForExist({ timeout: step.find.timeout });
-    } catch {}
+    // Enter a loop, checking for element periodically until timeout
+    const startTime = Date.now();
+    while (Date.now() - startTime < step.find.timeout) {
+      element = await driver.$(step.find.selector);
+      if (element.elementId) {
+        break;
+      }
+      // Wait 100ms before trying again
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
   } else if (step.find.elementText) {
-    element = await driver.$(
-      `//*[normalize-space(text())="${step.find.elementText}"]`
-    );
-    try {
-      await element.waitForExist({ timeout: step.find.timeout });
-    } catch {}
+    const startTime = Date.now();
+    while (Date.now() - startTime < step.find.timeout) {
+      element = await driver.$(
+        `//*[normalize-space(text())="${step.find.elementText}"]`
+      );
+      if (element.elementId) {
+        break;
+      }
+      // Wait 100ms before trying again
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
   } else {
     // No selector or text
     result.status = "FAIL";
