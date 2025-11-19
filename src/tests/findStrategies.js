@@ -413,59 +413,68 @@ async function findElementByCriteria({
           return null; // Element doesn't exist, skip it
         }
 
-        // Check elementText
+        // Build array of check promises to run in parallel
+        const checks = [];
+        const checkTypes = [];
+
         if (elementText) {
-          const text = await element.getText();
-          if (!text || !matchesPattern(text, elementText)) {
-            return null;
-          }
-          criteriaUsed.push("elementText");
+          checks.push(element.getText());
+          checkTypes.push({ type: "elementText", value: elementText });
         }
 
-        // Check elementAria
         if (elementAria) {
-          // Try to match using aria selector
-          const ariaLabel = await element.getComputedLabel();
-          if (!ariaLabel || !matchesPattern(ariaLabel, elementAria)) {
-            return null;
-          }
-          criteriaUsed.push("elementAria");
+          checks.push(element.getComputedLabel());
+          checkTypes.push({ type: "elementAria", value: elementAria });
         }
 
-        // Check elementId
         if (elementId) {
-          const id = await element.getAttribute("id");
-          if (!id || !matchesPattern(id, elementId)) {
-            return null;
-          }
-          criteriaUsed.push("elementId");
+          checks.push(element.getAttribute("id"));
+          checkTypes.push({ type: "elementId", value: elementId });
         }
 
-        // Check elementTestId
         if (elementTestId) {
-          const testId = await element.getAttribute("data-testid");
-          if (!testId || !matchesPattern(testId, elementTestId)) {
-            return null;
-          }
-          criteriaUsed.push("elementTestId");
+          checks.push(element.getAttribute("data-testid"));
+          checkTypes.push({ type: "elementTestId", value: elementTestId });
         }
 
-        // Check elementClass
         if (elementClass) {
-          const hasClass = await hasAllClasses(element, elementClass);
-          if (!hasClass) {
-            return null;
-          }
-          criteriaUsed.push("elementClass");
+          checks.push(hasAllClasses(element, elementClass));
+          checkTypes.push({ type: "elementClass", value: elementClass });
         }
 
-        // Check elementAttribute
         if (elementAttribute) {
-          const matches = await matchesAttributes(element, elementAttribute);
-          if (!matches) {
-            return null;
+          checks.push(matchesAttributes(element, elementAttribute));
+          checkTypes.push({ type: "elementAttribute", value: elementAttribute });
+        }
+
+        // Execute all checks in parallel
+        const results = await Promise.allSettled(checks);
+
+        // Validate all check results
+        for (let i = 0; i < results.length; i++) {
+          const result = results[i];
+          const checkType = checkTypes[i];
+
+          if (result.status === "rejected") {
+            return null; // Failed to get attribute/property
           }
-          criteriaUsed.push("elementAttribute");
+
+          const actualValue = result.value;
+
+          // Handle different check types
+          if (checkType.type === "elementClass" || checkType.type === "elementAttribute") {
+            // These return boolean directly from helper functions
+            if (!actualValue) {
+              return null;
+            }
+            criteriaUsed.push(checkType.type);
+          } else {
+            // Text/aria/id/testId checks need pattern matching
+            if (!actualValue || !matchesPattern(actualValue, checkType.value)) {
+              return null;
+            }
+            criteriaUsed.push(checkType.type);
+          }
         }
 
         // If we reach here, the element matches all criteria
