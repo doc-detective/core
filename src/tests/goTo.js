@@ -45,14 +45,21 @@ async function goTo({ config, step, driver }) {
   step = isValidStep.object;
 
   // Apply defaults if not specified
-  step.goTo = {
-    ...step.goTo,
-    timeout: step.goTo.timeout || 30000,
-    waitUntil: step.goTo.waitUntil || {
+  step.goTo.timeout = step.goTo.timeout || 30000;
+  if (!step.goTo.waitUntil) {
+    step.goTo.waitUntil = {
       networkIdleTime: 500,
       domIdleTime: 1000,
-    },
-  };
+    };
+  } else {
+    if (step.goTo.waitUntil.networkIdleTime === undefined) {
+      step.goTo.waitUntil.networkIdleTime = 500;
+    }
+    if (step.goTo.waitUntil.domIdleTime === undefined) {
+      step.goTo.waitUntil.domIdleTime = 1000;
+    }
+  }
+
   // Fill in defaults for any missing properties
   if (step.goTo.waitUntil.networkIdleTime === undefined) {
     step.goTo.waitUntil.networkIdleTime = 500;
@@ -69,7 +76,6 @@ async function goTo({ config, step, driver }) {
     const waitStartTime = Date.now();
     const waitTimeout = step.goTo.timeout;
     const waitConditions = {
-      documentReady: false,
       networkIdle: step.goTo.waitUntil.networkIdleTime !== null,
       domStable: step.goTo.waitUntil.domIdleTime !== null,
       elementFound: !!step.goTo.waitUntil.find,
@@ -206,13 +212,20 @@ async function goTo({ config, step, driver }) {
           })()
         );
       } else {
-        waitResults.elementFound.passed = true;
+waitResults.elementFound.passed = true;
         waitResults.elementFound.message = "Element search not requested";
       }
 
-      // Wait for all checks to complete
-      if (parallelChecks.length > 0) {
-        await Promise.all(parallelChecks);
+        // Wait for all checks to complete
+        if (parallelChecks.length > 0) {
+          const results = await Promise.allSettled(parallelChecks);
+          // Check if any checks failed
+        const failures = results.filter((r) => r.status === "rejected");
+        if (failures.length > 0) {
+          // Throw the first error to trigger the catch block
+          // All waitResults have been updated by individual catch blocks
+          throw failures[0].reason;
+        }
       }
 
       result.description = "Opened URL and all wait conditions met.";
@@ -277,24 +290,27 @@ async function waitForNetworkIdle(driver, idleTime, timeout) {
   // Initialize monitor with browser time only
   await driver.execute(() => {
     if (!window.__docDetectiveNetworkMonitor) {
+      const originalFetch = window.fetch;
+      const originalXHROpen = XMLHttpRequest.prototype.open;
+      
       window.__docDetectiveNetworkMonitor = {
         lastRequestTime: Date.now(), // Use browser time
         requestCount: 0,
         startTime: Date.now(), // Track start in browser
+        originalFetch: originalFetch,
+        originalXHROpen: originalXHROpen,
       };
 
-      const originalFetch = window.fetch;
       window.fetch = function (...args) {
         window.__docDetectiveNetworkMonitor.lastRequestTime = Date.now();
         window.__docDetectiveNetworkMonitor.requestCount++;
         return originalFetch.apply(this, args);
       };
 
-      const originalOpen = XMLHttpRequest.prototype.open;
       XMLHttpRequest.prototype.open = function (...args) {
         window.__docDetectiveNetworkMonitor.lastRequestTime = Date.now();
         window.__docDetectiveNetworkMonitor.requestCount++;
-        return originalOpen.apply(this, args);
+        return originalXHROpen.apply(this, args);
       };
     }
   });
@@ -311,29 +327,71 @@ async function waitForNetworkIdle(driver, idleTime, timeout) {
   });
 
   if (initialCheck.idleFor >= 100 && initialCheck.requestCount === 0) {
+    // Clean up network monitor
+    await driver.execute(() => {
+      if (window.__docDetectiveNetworkMonitor) {
+        // Restore original methods if they were patched
+        if (window.__docDetectiveNetworkMonitor.originalFetch) {
+          window.fetch = window.__docDetectiveNetworkMonitor.originalFetch;
+        }
+        if (window.__docDetectiveNetworkMonitor.originalXHROpen) {
+          XMLHttpRequest.prototype.open = window.__docDetectiveNetworkMonitor.originalXHROpen;
+        }
+        delete window.__docDetectiveNetworkMonitor;
+      }
+    });
     return; // Fast path
   }
 
   // Poll with browser-based time checks
-  while (true) {
-    if (Date.now() - startTime > timeout) {
-      throw new Error("Network idle timeout exceeded");
-    }
+  try {
+    while (true) {
+      if (Date.now() - startTime > timeout) {
+        // Clean up network monitor before throwing
+        await driver.execute(() => {
+          if (window.__docDetectiveNetworkMonitor) {
+            // Restore original methods if they were patched
+            if (window.__docDetectiveNetworkMonitor.originalFetch) {
+              window.fetch = window.__docDetectiveNetworkMonitor.originalFetch;
+            }
+            if (window.__docDetectiveNetworkMonitor.originalXHROpen) {
+              XMLHttpRequest.prototype.open = window.__docDetectiveNetworkMonitor.originalXHROpen;
+            }
+            delete window.__docDetectiveNetworkMonitor;
+          }
+        });
+        throw new Error("Network idle timeout exceeded");
+      }
 
-    const state = await driver.execute(() => {
-      const monitor = window.__docDetectiveNetworkMonitor;
-      const now = Date.now();
-      return {
-        idleFor: now - monitor.lastRequestTime,
-        elapsedTotal: now - monitor.startTime,
-      };
+      const state = await driver.execute(() => {
+        const monitor = window.__docDetectiveNetworkMonitor;
+        const now = Date.now();
+        return {
+          idleFor: now - monitor.lastRequestTime,
+          elapsedTotal: now - monitor.startTime,
+        };
+      });
+
+      if (state.idleFor >= idleTime) {
+        break; // Network idle achieved
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+  } finally {
+    // Always clean up network monitor
+    await driver.execute(() => {
+      if (window.__docDetectiveNetworkMonitor) {
+        // Restore original methods if they were patched
+        if (window.__docDetectiveNetworkMonitor.originalFetch) {
+          window.fetch = window.__docDetectiveNetworkMonitor.originalFetch;
+        }
+        if (window.__docDetectiveNetworkMonitor.originalXHROpen) {
+          XMLHttpRequest.prototype.open = window.__docDetectiveNetworkMonitor.originalXHROpen;
+        }
+        delete window.__docDetectiveNetworkMonitor;
+      }
     });
-
-    if (state.idleFor >= idleTime) {
-      break; // Network idle achieved
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, 200));
   }
 }
 
@@ -418,7 +476,7 @@ async function waitForDOMStable(driver, idleTime, timeout) {
       });
 
       if (state.idleFor >= idleTime) {
-        // Clean up observer
+        // Clean up observer before returning
         await driver.execute(() => {
           if (window.__docDetectiveDOMMonitor?.observer) {
             window.__docDetectiveDOMMonitor.observer.disconnect();
@@ -431,6 +489,8 @@ async function waitForDOMStable(driver, idleTime, timeout) {
       await new Promise((resolve) => setTimeout(resolve, 200));
     }
   } catch (error) {
-    throw new Error(`DOM stability check failed: ${error.message}`);
+    throw new Error(`DOM stability check failed: ${error.message}`, {
+      cause: error,
+    });
   }
 }
