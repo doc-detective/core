@@ -45,20 +45,22 @@ async function goTo({ config, step, driver }) {
   step = isValidStep.object;
 
   // Apply defaults if not specified
-  step.goTo = {
-    ...step.goTo,
-    timeout: step.goTo.timeout || 30000,
-    waitUntil: step.goTo.waitUntil || {
+  step.goTo.timeout = step.goTo.timeout || 30000;
+  
+  // Initialize waitUntil if not present
+  if (!step.goTo.waitUntil) {
+    step.goTo.waitUntil = {
       networkIdleTime: 500,
       domIdleTime: 1000,
-    },
-  };
-  // Fill in defaults for any missing properties
-  if (step.goTo.waitUntil.networkIdleTime === undefined) {
-    step.goTo.waitUntil.networkIdleTime = 500;
-  }
-  if (step.goTo.waitUntil.domIdleTime === undefined) {
-    step.goTo.waitUntil.domIdleTime = 1000;
+    };
+  } else {
+    // Fill in defaults for any missing properties
+    if (step.goTo.waitUntil.networkIdleTime === undefined) {
+      step.goTo.waitUntil.networkIdleTime = 500;
+    }
+    if (step.goTo.waitUntil.domIdleTime === undefined) {
+      step.goTo.waitUntil.domIdleTime = 1000;
+    }
   }
 
   // Run action
@@ -69,7 +71,6 @@ async function goTo({ config, step, driver }) {
     const waitStartTime = Date.now();
     const waitTimeout = step.goTo.timeout;
     const waitConditions = {
-      documentReady: false,
       networkIdle: step.goTo.waitUntil.networkIdleTime !== null,
       domStable: step.goTo.waitUntil.domIdleTime !== null,
       elementFound: !!step.goTo.waitUntil.find,
@@ -212,7 +213,14 @@ async function goTo({ config, step, driver }) {
 
       // Wait for all checks to complete
       if (parallelChecks.length > 0) {
-        await Promise.all(parallelChecks);
+        const results = await Promise.allSettled(parallelChecks);
+        // Check if any checks failed
+        const failures = results.filter(r => r.status === 'rejected');
+        if (failures.length > 0) {
+          // Throw the first error to trigger the catch block
+          // All waitResults have been updated by individual catch blocks
+          throw failures[0].reason;
+        }
       }
 
       result.description = "Opened URL and all wait conditions met.";
@@ -431,6 +439,6 @@ async function waitForDOMStable(driver, idleTime, timeout) {
       await new Promise((resolve) => setTimeout(resolve, 200));
     }
   } catch (error) {
-    throw new Error(`DOM stability check failed: ${error.message}`);
+    throw new Error(`DOM stability check failed: ${error.message}`, { cause: error });
   }
 }
