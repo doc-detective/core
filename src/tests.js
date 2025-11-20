@@ -68,6 +68,7 @@ function getDriverCapabilities({ runnerDetails, name, options }) {
         "appium:automationName": "Gecko",
         "appium:newCommandTimeout": 600, // 10 minutes
         browserName: "MozillaFirefox",
+        "wdio:enforceWebDriverClassic": true, // Disable BiDi, use classic mode
         "moz:firefoxOptions": {
           // Reference: https://developer.mozilla.org/en-US/docs/Web/WebDriver/Capabilities/firefoxOptions
           args,
@@ -94,6 +95,7 @@ function getDriverCapabilities({ runnerDetails, name, options }) {
           "appium:automationName": "Safari",
           "appium:newCommandTimeout": 600, // 10 minutes
           browserName: "Safari",
+          "wdio:enforceWebDriverClassic": true, // Disable BiDi, use classic mode
         };
       }
       break;
@@ -116,6 +118,7 @@ function getDriverCapabilities({ runnerDetails, name, options }) {
           "appium:newCommandTimeout": 600, // 10 minutes
           "appium:executable": chromium.driver,
           browserName: "chrome",
+          "wdio:enforceWebDriverClassic": true, // Disable BiDi, use classic mode
           "goog:chromeOptions": {
             // Reference: https://chromedriver.chromium.org/capabilities#h.p_ID_102
             args,
@@ -927,7 +930,6 @@ async function driverStart(capabilities) {
     capabilities,
     connectionRetryTimeout: 600000, // 10 minutes
     waitforTimeout: 600000, // 10 minutes
-    webSocketUrl: false, // Disable BiDi, use classic mode
   });
   driver.state = { url: "", x: null, y: null };
   return driver;
