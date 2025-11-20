@@ -927,6 +927,7 @@ async function driverStart(capabilities) {
     capabilities,
     connectionRetryTimeout: 600000, // 10 minutes
     waitforTimeout: 600000, // 10 minutes
+    webSocketUrl: false, // Disable BiDi, use classic mode
   });
   driver.state = { url: "", x: null, y: null };
   return driver;
