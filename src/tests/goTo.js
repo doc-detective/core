@@ -47,19 +47,21 @@ async function goTo({ config, step, driver }) {
   // Apply defaults if not specified
   step.goTo.timeout = step.goTo.timeout || 30000;
   
-  // Initialize waitUntil if not present
+  // Initialize waitUntil if not present with default values
+  // If waitUntil is explicitly provided, set undefined properties to null
+  // to allow users to selectively enable only certain checks
   if (!step.goTo.waitUntil) {
     step.goTo.waitUntil = {
       networkIdleTime: 500,
       domIdleTime: 1000,
     };
   } else {
-    // Fill in defaults for any missing properties
+    // Convert undefined to null for selective check enablement
     if (step.goTo.waitUntil.networkIdleTime === undefined) {
-      step.goTo.waitUntil.networkIdleTime = 500;
+      step.goTo.waitUntil.networkIdleTime = null;
     }
     if (step.goTo.waitUntil.domIdleTime === undefined) {
-      step.goTo.waitUntil.domIdleTime = 1000;
+      step.goTo.waitUntil.domIdleTime = null;
     }
   }
 
