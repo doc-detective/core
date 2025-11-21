@@ -40,12 +40,21 @@ after(async () => {
 describe("Run tests successfully", function () {
   // Set indefinite timeout
   this.timeout(0);
-  it("All specs pass", async () => {
-    const config_tests = JSON.parse(JSON.stringify(config_base));
-    config_tests.runTests.input = inputPath;
-    const result = await runTests(config_tests);
-    if (result === null) assert.fail("Expected result to be non-null");
-    assert.equal(result.summary.specs.fail, 0);
+  describe("Core test suite", function () {
+    // For each file (not directory) in artifactPath, create an individual test
+    const files = fs.readdirSync(artifactPath);
+    files.forEach((file) => {
+      const filePath = path.join(artifactPath, file);
+      if (fs.lstatSync(filePath).isFile() && file.endsWith(".json") && file !== "config.json") {
+        it(`Test file: ${file}`, async () => {
+          const config_tests = JSON.parse(JSON.stringify(config_base));
+          config_tests.runTests.input = filePath;
+          const result = await runTests(config_tests);
+          if (result === null) assert.fail("Expected result to be non-null");
+          assert.equal(result.summary.specs.fail, 0);
+        });
+      }
+    });
   });
 
   it("Tests skip steps after a failure", async () => {
