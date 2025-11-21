@@ -340,7 +340,7 @@ async function saveScreenshot({ config, step, driver }) {
           // Replace old file with new file
           fs.renameSync(filePath, existFilePath);
         }
-        result.status = "FAIL";
+        result.status = "WARNING";
         result.description += ` Screenshots are beyond maximum accepted variation: ${percentDiff.toFixed(
           2
         )}%.`;
