@@ -4,7 +4,7 @@ const { log } = require("../utils");
 const path = require("path");
 const fs = require("fs");
 const PNG = require("pngjs").PNG;
-const sharp = require("sharp");
+const { Jimp } = require("jimp");
 const pixelmatch = require("pixelmatch");
 
 exports.saveScreenshot = saveScreenshot;
@@ -218,25 +218,14 @@ async function saveScreenshot({ config, step, driver }) {
     // Create a new PNG object with the dimensions of the cropped area
     const croppedPath = path.join(dir, "cropped.png");
     try {
-      sharp(filePath)
-        .extract({
-          left: rect.x,
-          top: rect.y,
-          width: rect.width,
-          height: rect.height,
-        })
-        .toFile(croppedPath);
-
-      // Wait for the file to be written
-      let retryLimit = 50;
-      while (!fs.existsSync(croppedPath)) {
-        if (--retryLimit === 0) {
-          result.status = "FAIL";
-          result.description = `Couldn't write cropped image to file.`;
-          return result;
-        }
-        await new Promise((resolve) => setTimeout(resolve, 500));
-      }
+      const image = await Jimp.read(filePath);
+      image.crop({
+        x: rect.x,
+        y: rect.y,
+        w: rect.width,
+        h: rect.height
+      });
+      await image.write(croppedPath);
 
       // Replace the original file with the cropped file
       fs.renameSync(croppedPath, filePath);
@@ -279,16 +268,23 @@ async function saveScreenshot({ config, step, driver }) {
         const width = Math.min(img1.width, img2.width);
         const height = Math.min(img1.height, img2.height);
 
-        const img1ResizedBuffer = await sharp(img1.data, {
-          raw: { width: img1.width, height: img1.height, channels: 4 },
-        })
-          .resize(width, height)
-          .toBuffer();
-        const img2ResizedBuffer = await sharp(img2.data, {
-          raw: { width: img2.width, height: img2.height, channels: 4 },
-        })
-          .resize(width, height)
-          .toBuffer();
+        // Create Jimp images from raw data
+        const jimpImg1 = Jimp.fromBitmap({
+          width: img1.width,
+          height: img1.height,
+          data: Buffer.from(img1.data)
+        });
+        const jimpImg2 = Jimp.fromBitmap({
+          width: img2.width,
+          height: img2.height,
+          data: Buffer.from(img2.data)
+        });
+        
+        // Resize images
+        jimpImg1.resize({ w: width, h: height });
+        jimpImg2.resize({ w: width, h: height });
+        const img1ResizedBuffer = await jimpImg1.getBuffer('image/png');
+        const img2ResizedBuffer = await jimpImg2.getBuffer('image/png');
 
         // Convert resized buffers to PNG objects
         const resizedImg1 = PNG.sync.read(img1ResizedBuffer);
