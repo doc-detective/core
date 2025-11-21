@@ -164,10 +164,10 @@ async function loadCookie({ config, step, driver }) {
     }
 
     // Prepare cookie for WebDriver
-    // Handle sameSite and secure relationship: if sameSite is "none", secure must be true
+    // Handle sameSite and secure relationship: if sameSite is "None", secure must be true
     const isHttps = currentUrl.startsWith("https://");
 
-    let sameSite = targetCookie.sameSite   // When migrating to BiDi, this needs to be lowercased ("lax")
+    let sameSite = targetCookie.sameSite || "Lax";   // When migrating to BiDi, this needs to be lowercased ("lax")
     let secure = targetCookie.secure || false;
 
     // If sameSite is "None", secure must be true, but only if we're on HTTPS
