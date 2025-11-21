@@ -326,7 +326,7 @@ async function waitForNetworkIdle(driver, idleTime, timeout) {
     };
   });
 
-  if (initialCheck.idleFor >= 100 && initialCheck.requestCount === 0) {
+  if (initialCheck.idleFor >= idleTime && initialCheck.requestCount === 0) {
     // Clean up network monitor
     await driver.execute(() => {
       if (window.__docDetectiveNetworkMonitor) {
@@ -440,7 +440,7 @@ async function waitForDOMStable(driver, idleTime, timeout) {
     };
   });
 
-  if (initialCheck.idleFor >= 100 && initialCheck.mutationCount === 0) {
+  if (initialCheck.idleFor >= idleTime && initialCheck.mutationCount === 0) {
     // Clean up observer
     await driver.execute(() => {
       if (window.__docDetectiveDOMMonitor?.observer) {
