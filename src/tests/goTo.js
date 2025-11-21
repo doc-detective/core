@@ -489,6 +489,13 @@ async function waitForDOMStable(driver, idleTime, timeout) {
       await new Promise((resolve) => setTimeout(resolve, 200));
     }
   } catch (error) {
+    // Clean up observer before re-throwing
+    await driver.execute(() => {
+      if (window.__docDetectiveDOMMonitor?.observer) {
+        window.__docDetectiveDOMMonitor.observer.disconnect();
+        delete window.__docDetectiveDOMMonitor;
+      }
+    });
     throw new Error(`DOM stability check failed: ${error.message}`, {
       cause: error,
     });
