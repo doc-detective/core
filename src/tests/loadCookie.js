@@ -164,23 +164,23 @@ async function loadCookie({ config, step, driver }) {
     }
 
     // Prepare cookie for WebDriver
-    // Handle sameSite and secure relationship: if sameSite is "none", secure must be true
+    // Handle sameSite and secure relationship: if sameSite is "None", secure must be true
     const isHttps = currentUrl.startsWith("https://");
 
-    let sameSite = (targetCookie.sameSite || "lax").toLowerCase(); // Normalize to lowercase for BIDI compliance
+    let sameSite = targetCookie.sameSite || "Lax";   // When migrating to BiDi, this needs to be lowercased ("lax")
     let secure = targetCookie.secure || false;
 
-    // If sameSite is "none", secure must be true, but only if we're on HTTPS
-    if (sameSite === "none") {
+    // If sameSite is "None", secure must be true, but only if we're on HTTPS
+    if (sameSite === "None") {    // When migrating to BiDi, this needs to be lowercased ("none")
       if (isHttps) {
         secure = true;
       } else {
-        // For HTTP, we can't use sameSite: "none", fall back to "lax"
-        sameSite = "lax";
+        // For HTTP, we can't use sameSite: "None", fall back to "Lax"
+        sameSite = "Lax";
         log(
           config,
           "debug",
-          `Changed sameSite from "none" to "lax" because current URL is HTTP`
+          `Changed sameSite from "None" to "Lax" because current URL is HTTP`
         );
       }
     }
@@ -321,7 +321,7 @@ function parseNetscapeCookieFile(content) {
         name: parts[5],
         value: parts[6],
         httpOnly: isHttpOnlyLine || (parts.length > 7 && parts[7] === "TRUE"),
-        sameSite: parts.length > 8 ? parts[8].toLowerCase() : "lax",
+        sameSite: parts.length > 8 ? parts[8] : "Lax",   // When migrating to BiDi, sameSite needs to be lowercased ("lax")
       };
 
       // Add expiry if it's a valid number and greater than current time

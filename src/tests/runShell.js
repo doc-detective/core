@@ -146,7 +146,7 @@ async function runShell({ config, step }) {
           // Overwrite file
           fs.writeFileSync(filePath, result.outputs.stdio.stdout);
         }
-        result.status = "FAIL";
+        result.status = "WARNING";
         result.description =
           result.description +
           ` The percentage difference between the existing file content and command output content (${percentDiff}%) is greater than the max accepted variation (${step.runShell.maxVariation}%).`;
