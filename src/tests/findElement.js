@@ -1,11 +1,9 @@
 const { validate } = require("doc-detective-common");
 const {
   findElementByShorthand,
-  findElementBySelectorAndText,
   findElementByCriteria,
   setElementOutputs,
 } = require("./findStrategies");
-const { clickElement } = require("./click");
 const { typeKeys } = require("./typeKeys");
 const { moveTo } = require("./moveTo");
 const { wait } = require("./wait");
@@ -13,7 +11,7 @@ const { wait } = require("./wait");
 exports.findElement = findElement;
 
 // Find a single element
-async function findElement({ config, step, driver }) {
+async function findElement({ config, step, driver, click }) {
   let result = {
     status: "PASS",
     description: "Found an element matching selector.",
@@ -37,17 +35,6 @@ async function findElement({ config, step, driver }) {
       driver,
     });
     if (element) {
-      try {
-        // Wait for timeout
-        await element.waitForExist({ timeout: 5000 });
-      } catch {
-        // No matching elements
-        if (!element.elementId) {
-          result.status = "FAIL";
-          result.description = "No elements matched selector or text.";
-          return result;
-        }
-      }
       result.description += ` Found element by ${foundBy}.`;
       result.outputs = await setElementOutputs({ element });
       return result;
@@ -124,25 +111,16 @@ async function findElement({ config, step, driver }) {
   }
 
   // Click element
-  if (step.find.click) {
-    const clickStep = {
-      click: {
+  if (step.find.click || click) {
+    try {
+      await element.click({
         button: step.find.click?.button || "left",
-        selector: step.find.selector,
-        elementText: step.find.elementText,
-      },
-    };
-    const clickResult = await clickElement({
-      config: config,
-      step: clickStep,
-      driver: driver,
-      element: element,
-    });
-    if (clickResult.status === "FAIL") {
-      result.status = "FAIL";
-      result.description += clickResult.description;
-    } else {
+      });
       result.description += " Clicked element.";
+    } catch (error) {
+      result.status = "FAIL";
+      result.description += ` Couldn't click element. Error: ${error.message}`;
+      return result;
     }
   }
 
