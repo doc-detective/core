@@ -1,9 +1,5 @@
 const { validate } = require("doc-detective-common");
-const {
-  findElementBySelectorAndText,
-  findElementByShorthand,
-  setElementOutputs,
-} = require("./findStrategies");
+const { findElement } = require("./findElement");
 const { log } = require("../utils");
 
 exports.dragAndDropElement = dragAndDropElement;
@@ -86,53 +82,33 @@ async function dragAndDropElement({ config, step, driver, element }) {
   // Set default duration if not provided
   const duration = step.dragAndDrop.duration || 1000;
 
-  // Helper function to find an element based on specification
-  const findElement = async (elementSpec, elementType) => {
-    if (typeof elementSpec === "string") {
-      elementSpec = { elementText: elementSpec };
-    }
-    // Handle detailed object format
-    if (elementSpec.elementText && elementSpec.selector) {
-      // Find element by selector and text
-      const { element: foundElement, foundBy } =
-        await findElementBySelectorAndText({
-          selector: elementSpec.selector,
-          text: elementSpec.elementText,
-          timeout: elementSpec.timeout || 5000,
-          driver,
-        });
-      if (!foundElement || !foundElement.elementId) {
-        throw new Error(
-          `No ${elementType} elements matched selector and/or text.`
-        );
-      }
-      return { element: foundElement, foundBy };
-    } else {
-      // Fallback to simple selector/text search
-      const { element: foundElement, foundBy } =
-        await findElementByShorthand({
-          string: elementSpec.selector || elementSpec.elementText,
-          driver,
-        });
-      if (!foundElement || !foundElement.elementId) {
-        throw new Error(`No ${elementType} elements matched selector or text.`);
-      }
-      return { element: foundElement, foundBy };
-    }
-  };
-
   let sourceElement, targetElement;
 
   try {
+    // Prepare find steps for source and target
+    let sourceFindStep;
+    if (typeof step.dragAndDrop.source === "string") {
+      sourceFindStep = { find: step.dragAndDrop.source };
+    } else if (typeof step.dragAndDrop.source === "object") {
+      sourceFindStep = { find: { ...step.dragAndDrop.source } };
+    }
+
+    let targetFindStep;
+    if (typeof step.dragAndDrop.target === "string") {
+      targetFindStep = { find: step.dragAndDrop.target };
+    } else if (typeof step.dragAndDrop.target === "object") {
+      targetFindStep = { find: { ...step.dragAndDrop.target } };
+    }
+
     // Execute both element searches concurrently
     const [sourceResult, targetResult] = await Promise.all([
-      findElement(step.dragAndDrop.source, "source"),
-      findElement(step.dragAndDrop.target, "target"),
+      findElement({ config, step: sourceFindStep, driver }),
+      findElement({ config, step: targetFindStep, driver }),
     ]);
 
-    sourceElement = sourceResult.element;
-    targetElement = targetResult.element;
-    result.description = `Found source element by ${sourceResult.foundBy}. Found target element by ${targetResult.foundBy}.`;
+    sourceElement = sourceResult.outputs.element;
+    targetElement = targetResult.outputs.element;
+    result.description = `Found source element. Found target element.`;
   } catch (error) {
     result.status = "FAIL";
     result.description = error.message;
