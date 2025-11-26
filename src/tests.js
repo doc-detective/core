@@ -927,6 +927,7 @@ async function driverStart(capabilities) {
     hostname: "0.0.0.0",
     port: 4723,
     path: "/",
+    logLevel: "error",
     capabilities,
     connectionRetryTimeout: 600000, // 10 minutes
     waitforTimeout: 600000, // 10 minutes
