@@ -445,11 +445,11 @@ async function findElementByCriteria({
           checkTypes.push({ type: "elementTestId", value: elementTestId });
         }
 
-        // Normalize elementClass to array if it's a string
-        elementClass = Array.isArray(elementClass) ? elementClass : elementClass ? [elementClass] : undefined;
-        if (elementClass) {
-          checks.push(hasAllClasses(element, elementClass));
-          checkTypes.push({ type: "elementClass", value: elementClass });
+        // Normalize elementClass to array if it's a string (use local var to avoid mutation)
+        const normalizedElementClass = Array.isArray(elementClass) ? elementClass : elementClass ? [elementClass] : undefined;
+        if (normalizedElementClass) {
+          checks.push(hasAllClasses(element, normalizedElementClass));
+          checkTypes.push({ type: "elementClass", value: normalizedElementClass });
         }
 
         if (elementAttribute) {
@@ -458,18 +458,18 @@ async function findElementByCriteria({
         }
 
         // Execute all checks in parallel
-        const results = await Promise.allSettled(checks);
+        const checkResults = await Promise.allSettled(checks);
 
         // Validate all check results
-        for (let i = 0; i < results.length; i++) {
-          const result = results[i];
+        for (let i = 0; i < checkResults.length; i++) {
+          const checkResult = checkResults[i];
           const checkType = checkTypes[i];
 
-          if (result.status === "rejected") {
+          if (checkResult.status === "rejected") {
             return null; // Failed to get attribute/property
           }
 
-          const actualValue = result.value;
+          const actualValue = checkResult.value;
 
           // Handle different check types
           if (checkType.type === "elementClass" || checkType.type === "elementAttribute") {
@@ -492,8 +492,12 @@ async function findElementByCriteria({
       });
 
       // Wait for all element checks to complete
-      const promiseArray = Array.isArray(matchedElementPromises) ? matchedElementPromises : [...matchedElementPromises];
-      const matchedElements = await Promise.all(promiseArray);
+      // candidates.map() should always return an array, but handle edge cases
+      if (!matchedElementPromises || !Array.isArray(matchedElementPromises)) {
+        await new Promise((resolve) => setTimeout(resolve, pollingInterval));
+        continue;
+      }
+      const matchedElements = await Promise.all(matchedElementPromises);
       results = matchedElements.filter((el) => el !== null);
     } catch (error) {
       console.error("Error finding elements:", error);
