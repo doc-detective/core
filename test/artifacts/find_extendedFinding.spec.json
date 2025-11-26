@@ -293,96 +293,6 @@
       ]
     },
     {
-      "testId": "click-with-elementTestId",
-      "steps": [
-        {
-          "goTo": "http://localhost:8092/enhanced-elements.html"
-        },
-        {
-          "click": {
-            "elementTestId": "checkout-button"
-          }
-        }
-      ]
-    },
-    {
-      "testId": "click-with-elementClass",
-      "steps": [
-        {
-          "goTo": "http://localhost:8092/enhanced-elements.html"
-        },
-        {
-          "click": {
-            "elementClass": "enabled",
-            "elementText": "Enabled Primary"
-          }
-        }
-      ]
-    },
-    {
-      "testId": "type-with-elementTestId",
-      "steps": [
-        {
-          "goTo": "http://localhost:8092/enhanced-elements.html"
-        },
-        {
-          "type": {
-            "elementTestId": "username-field",
-            "keys": "testuser"
-          }
-        }
-      ]
-    },
-    {
-      "testId": "type-with-elementAttribute",
-      "steps": [
-        {
-          "goTo": "http://localhost:8092/enhanced-elements.html"
-        },
-        {
-          "type": {
-            "elementAttribute": {
-              "type": "email",
-              "required": true
-            },
-            "keys": "test@example.com"
-          }
-        }
-      ]
-    },
-    {
-      "testId": "screenshot-with-crop-elementTestId",
-      "steps": [
-        {
-          "goTo": "http://localhost:8092/enhanced-elements.html"
-        },
-        {
-          "screenshot": {
-            "path": "enhanced-modal.png",
-            "crop": {
-              "elementTestId": "modal-close"
-            }
-          }
-        }
-      ]
-    },
-    {
-      "testId": "screenshot-with-crop-elementClass",
-      "steps": [
-        {
-          "goTo": "http://localhost:8092/enhanced-elements.html"
-        },
-        {
-          "screenshot": {
-            "path": "enhanced-modal-large.png",
-            "crop": {
-              "elementClass": ["modal", "modal-visible"]
-            }
-          }
-        }
-      ]
-    },
-    {
       "testId": "multiple-attributes-combined",
       "steps": [
         {
@@ -409,33 +319,6 @@
         {
           "find": {
             "elementClass": "btn-primary"
-          }
-        }
-      ]
-    },
-    {
-      "testId": "backward-compatibility-selector-only",
-      "steps": [
-        {
-          "goTo": "http://localhost:8092/enhanced-elements.html"
-        },
-        {
-          "click": {
-            "selector": "#submit-button"
-          }
-        }
-      ]
-    },
-    {
-      "testId": "backward-compatibility-selector-and-text",
-      "steps": [
-        {
-          "goTo": "http://localhost:8092/enhanced-elements.html"
-        },
-        {
-          "click": {
-            "selector": "button",
-            "elementText": "Submit Form"
           }
         }
       ]

@@ -1,0 +1,37 @@
+{
+  "specId": "enhancedElementFinding",
+  "tests": [
+    {
+      "testId": "screenshot-with-crop-elementTestId",
+      "steps": [
+        {
+          "goTo": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "screenshot": {
+            "path": "enhanced-modal.png",
+            "crop": {
+              "elementTestId": "modal-close"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "testId": "screenshot-with-crop-elementClass",
+      "steps": [
+        {
+          "goTo": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "screenshot": {
+            "path": "enhanced-modal-large.png",
+            "crop": {
+              "elementClass": ["modal", "modal-visible"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

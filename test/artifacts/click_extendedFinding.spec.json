@@ -1,0 +1,60 @@
+{
+  "specId": "enhancedElementFinding",
+  "tests": [
+    
+    {
+      "testId": "click-with-elementTestId",
+      "steps": [
+        {
+          "goTo": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "click": {
+            "elementTestId": "checkout-button"
+          }
+        }
+      ]
+    },
+    {
+      "testId": "click-with-elementClass",
+      "steps": [
+        {
+          "goTo": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "click": {
+            "elementClass": "enabled",
+            "elementText": "Enabled Primary"
+          }
+        }
+      ]
+    },
+    {
+      "testId": "backward-compatibility-selector-only",
+      "steps": [
+        {
+          "goTo": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "click": {
+            "selector": "#submit-button"
+          }
+        }
+      ]
+    },
+    {
+      "testId": "backward-compatibility-selector-and-text",
+      "steps": [
+        {
+          "goTo": "http://localhost:8092/enhanced-elements.html"
+        },
+        {
+          "click": {
+            "selector": "button",
+            "elementText": "Submit Form"
+          }
+        }
+      ]
+    }
+  ]
+}
