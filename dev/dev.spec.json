@@ -3,7 +3,21 @@
     {
       "steps": [
         {
-          "goTo": "http://localhost:8092"
+          "goTo": "http://localhost:8092",
+          "waitUntil": {
+            "find": {
+              "selector": "button",
+              "elementText": "Standard Button",
+              "elementTestId": "standard-btn",
+              "elementAria": "Sample Standard Button",
+              "elementId": "standard-btn",
+              "elementClass": ["btn"],
+              "elementAttribute": {
+                "type": "button",
+                "value": "Standard Button"
+              }
+            }
+          }
         },
         {
           "find": "Text Elements"
