@@ -484,8 +484,8 @@ async function findElementByCriteria({
       });
 
       // Wait for all element checks to complete
-      const matchedElements = await matchedElementPromises;
-      results = await matchedElements.filter((el) => el !== null);
+      const matchedElements = await Promise.all(matchedElementPromises);
+      results = matchedElements.filter((el) => el !== null);
     } catch (error) {
       console.error("Error finding elements:", error);
     }
