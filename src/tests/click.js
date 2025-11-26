@@ -30,7 +30,7 @@ async function clickElement({ config, step, driver }) {
       ...step.click,
       button: step.click.button || "left",
     };
-    findStep = { find: {...step.click}, click: { button: step.click.button } };
+    findStep = { find: {...step.click, click: { button: step.click.button } } };
     if (findStep.find.button) {
       delete findStep.find.button;
     }
