@@ -437,6 +437,8 @@ async function findElementByCriteria({
           checkTypes.push({ type: "elementTestId", value: elementTestId });
         }
 
+        // Normalize elementClass to array if it's a string
+        elementClass = Array.isArray(elementClass) ? elementClass : elementClass ? [elementClass] : undefined;
         if (elementClass) {
           checks.push(hasAllClasses(element, elementClass));
           checkTypes.push({ type: "elementClass", value: elementClass });
