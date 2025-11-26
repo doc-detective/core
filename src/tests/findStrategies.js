@@ -398,10 +398,18 @@ async function findElementByCriteria({
       // Initial candidate selection based on most specific criteria
       if (selector) {
         // Start with selector if provided
-        candidates = await driver.$$(selector);
+        const rawCandidates = await driver.$$(selector);
+        candidates = Array.isArray(rawCandidates) ? rawCandidates : Array.from(rawCandidates || []);
         criteriaUsed.push("selector");
       } else {
-        candidates = await driver.$$("//*");
+        const rawCandidates = await driver.$$("//*");
+        candidates = Array.isArray(rawCandidates) ? rawCandidates : Array.from(rawCandidates || []);
+      }
+
+      // Skip if no candidates found
+      if (candidates.length === 0) {
+        await new Promise((resolve) => setTimeout(resolve, pollingInterval));
+        continue;
       }
 
       // Filter candidates by all criteria
@@ -484,7 +492,8 @@ async function findElementByCriteria({
       });
 
       // Wait for all element checks to complete
-      const matchedElements = await Promise.all(matchedElementPromises);
+      const promiseArray = Array.isArray(matchedElementPromises) ? matchedElementPromises : [...matchedElementPromises];
+      const matchedElements = await Promise.all(promiseArray);
       results = matchedElements.filter((el) => el !== null);
     } catch (error) {
       console.error("Error finding elements:", error);

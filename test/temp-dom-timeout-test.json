@@ -1,0 +1,17 @@
+{
+  "tests": [
+    {
+      "steps": [
+        {
+          "goTo": {
+            "url": "http://localhost:8092/waitUntil-test-dom-mutations-forever.html",
+            "timeout": 5000,
+            "waitUntil": {
+              "domIdleTime": 500
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
