@@ -43,7 +43,7 @@ async function testEnhancedElementFinding() {
       });
     }
     
-    process.exit(result.summary.specs.fail > 0 ? 1 : 0);
+    process.exit(result.summary.specs.fail > 0 || result.summary.tests.fail > 0 ? 1 : 0);
   } catch (error) {
     console.error("Error running tests:", error);
     process.exit(1);

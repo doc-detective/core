@@ -4,7 +4,7 @@ console.log("Testing helper functions...\n");
 
 // Test logic inline
 function isRegexPattern(str) {
-  return typeof str === 'string' && str.startsWith('/') && str.endsWith('/');
+  return typeof str === "string" && str.startsWith("/") && str.endsWith("/");
 }
 
 function matchesPattern(value, pattern) {
