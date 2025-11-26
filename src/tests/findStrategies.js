@@ -393,49 +393,70 @@ async function findElementByCriteria({
     let candidates = [];
 
     try {
-      // Build a targeted XPath based on criteria to avoid querying all elements
-      let xpath = "";
-      
+      // Build a combined XPath that includes all non-regex criteria to minimize candidates
       if (selector) {
         // Use CSS selector directly
         const rawCandidates = await driver.$$(selector);
         candidates = Array.isArray(rawCandidates) ? rawCandidates : Array.from(rawCandidates || []);
-      } else if (elementId) {
-        // Target elements with id attribute
-        xpath = "//*[@id]";
-        const rawCandidates = await driver.$$(xpath);
-        candidates = Array.isArray(rawCandidates) ? rawCandidates : Array.from(rawCandidates || []);
-      } else if (elementTestId) {
-        // Target elements with data-testid attribute
-        xpath = "//*[@data-testid]";
-        const rawCandidates = await driver.$$(xpath);
-        candidates = Array.isArray(rawCandidates) ? rawCandidates : Array.from(rawCandidates || []);
-      } else if (elementClass) {
-        // Target elements with class attribute
-        xpath = "//*[@class]";
-        const rawCandidates = await driver.$$(xpath);
-        candidates = Array.isArray(rawCandidates) ? rawCandidates : Array.from(rawCandidates || []);
-      } else if (elementAttribute) {
-        // Target elements that might have the specified attributes
-        const attrNames = Object.keys(elementAttribute);
-        if (attrNames.length > 0) {
-          xpath = `//*[@${attrNames[0]}]`;
-          const rawCandidates = await driver.$$(xpath);
-          candidates = Array.isArray(rawCandidates) ? rawCandidates : Array.from(rawCandidates || []);
-        }
-      } else if (elementAria) {
-        // Target elements with aria-label or that might have accessible names
-        xpath = "//*[@aria-label or @aria-labelledby or @title or normalize-space(text())]";
-        const rawCandidates = await driver.$$(xpath);
-        candidates = Array.isArray(rawCandidates) ? rawCandidates : Array.from(rawCandidates || []);
-      } else if (elementText) {
-        // Target elements with text content
-        xpath = "//*[normalize-space(text())]";
-        const rawCandidates = await driver.$$(xpath);
-        candidates = Array.isArray(rawCandidates) ? rawCandidates : Array.from(rawCandidates || []);
       } else {
-        // Fallback: but this shouldn't happen as we validate at least one criterion
-        const rawCandidates = await driver.$$("//*");
+        // Build XPath with all applicable conditions combined
+        const xpathConditions = [];
+        
+        // Add ID condition (exact match or check for existence)
+        if (elementId && !isRegexPattern(elementId)) {
+          xpathConditions.push(`@id="${elementId}"`);
+        } else if (elementId) {
+          xpathConditions.push(`@id`); // Regex will be checked later
+        }
+        
+        // Add test ID condition (exact match or check for existence)
+        if (elementTestId && !isRegexPattern(elementTestId)) {
+          xpathConditions.push(`@data-testid="${elementTestId}"`);
+        } else if (elementTestId) {
+          xpathConditions.push(`@data-testid`); // Regex will be checked later
+        }
+        
+        // Add class condition (check for existence, specific matches checked later)
+        if (elementClass) {
+          xpathConditions.push(`@class`);
+        }
+        
+        // Add attribute conditions
+        if (elementAttribute) {
+          for (const [attrName, attrValue] of Object.entries(elementAttribute)) {
+            if (typeof attrValue === 'boolean') {
+              // Boolean: just check for attribute existence if true
+              if (attrValue && attrName !== 'disabled') {
+                xpathConditions.push(`@${attrName}`);
+              }
+            } else if (typeof attrValue === 'number') {
+              // Number: exact match
+              xpathConditions.push(`@${attrName}="${attrValue}"`);
+            } else if (typeof attrValue === 'string' && !isRegexPattern(attrValue)) {
+              // String: exact match
+              xpathConditions.push(`@${attrName}="${attrValue}"`);
+            } else {
+              // Regex: just check for attribute existence
+              xpathConditions.push(`@${attrName}`);
+            }
+          }
+        }
+        
+        // Add text condition (check for text content existence)
+        if (elementText) {
+          xpathConditions.push(`normalize-space(text())`);
+        }
+        
+        // Build final XPath
+        let xpath;
+        if (xpathConditions.length > 0) {
+          xpath = `//*[${xpathConditions.join(' and ')}]`;
+        } else {
+          // Fallback if only aria/regex criteria (can't be expressed in XPath easily)
+          xpath = `//*`;
+        }
+        
+        const rawCandidates = await driver.$$(xpath);
         candidates = Array.isArray(rawCandidates) ? rawCandidates : Array.from(rawCandidates || []);
       }
 
@@ -479,11 +500,9 @@ async function findElementByCriteria({
             checkTypes.push({ type: "elementTestId", value: elementTestId });
           }
 
-          // Normalize elementClass to array if it's a string (use local var to avoid mutation)
-          const normalizedElementClass = Array.isArray(elementClass) ? elementClass : elementClass ? [elementClass] : undefined;
-          if (normalizedElementClass) {
-            checks.push(hasAllClasses(element, normalizedElementClass));
-            checkTypes.push({ type: "elementClass", value: normalizedElementClass });
+          if (elementClass) {
+            checks.push(hasAllClasses(element, elementClass));
+            checkTypes.push({ type: "elementClass", value: elementClass });
           }
 
           if (elementAttribute) {
