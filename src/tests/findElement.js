@@ -55,6 +55,10 @@ async function findElement({ config, step, driver, click }) {
     click: step.find.click || false,
     type: step.find.type || false,
   };
+  // Normalize elementClass to array
+  if (step.find.elementClass && !Array.isArray(step.find.elementClass)) {
+    step.find.elementClass = [step.find.elementClass];
+  }
 
   // Find element (and match text and other criteria)
   let element;
