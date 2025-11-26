@@ -106,6 +106,13 @@ async function dragAndDropElement({ config, step, driver, element }) {
       findElement({ config, step: targetFindStep, driver }),
     ]);
 
+    // Check if source or target element search failed
+    if (sourceResult.status === "FAIL") {
+      return sourceResult;
+    }
+    if (targetResult.status === "FAIL") {
+      return targetResult;
+    }
     sourceElement = sourceResult.outputs.rawElement;
     targetElement = targetResult.outputs.rawElement;
     result.description = `Found source element. Found target element.`;

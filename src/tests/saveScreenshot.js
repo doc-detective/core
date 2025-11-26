@@ -154,7 +154,7 @@ async function saveScreenshot({ config, step, driver }) {
     // Scroll element into view at top-left with padding
     await driver.execute(
       (el, pad) => {
-        el.scrollIntoView({ block: 'start', inline: 'start', behavior: 'instant' });
+        el.scrollIntoView({ block: "start", inline: "start", behavior: "instant" });
         window.scrollBy(-pad.left, -pad.top);
       },
       element,

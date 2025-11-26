@@ -114,7 +114,7 @@ async function typeKeys({ config, step, driver }) {
                              step.type.elementAria;
   
   if (hasElementCriteria) {
-    const { element: foundElement, foundBy, error } = await findElementByCriteria({
+    const { element: foundElement, error } = await findElementByCriteria({
       selector: step.type.selector,
       elementText: step.type.elementText,
       elementId: step.type.elementId,
