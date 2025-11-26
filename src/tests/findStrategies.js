@@ -397,67 +397,81 @@ async function findElementByCriteria({
       if (selector) {
         // Use CSS selector directly
         const rawCandidates = await driver.$$(selector);
-        candidates = Array.isArray(rawCandidates) ? rawCandidates : Array.from(rawCandidates || []);
+        candidates = Array.isArray(rawCandidates)
+          ? rawCandidates
+          : Array.from(rawCandidates || []);
       } else {
         // Build XPath with all applicable conditions combined
         const xpathConditions = [];
-        
+
         // Add ID condition (exact match or check for existence)
         if (elementId && !isRegexPattern(elementId)) {
           xpathConditions.push(`@id="${elementId}"`);
         } else if (elementId) {
           xpathConditions.push(`@id`); // Regex will be checked later
         }
-        
+
         // Add test ID condition (exact match or check for existence)
         if (elementTestId && !isRegexPattern(elementTestId)) {
           xpathConditions.push(`@data-testid="${elementTestId}"`);
         } else if (elementTestId) {
           xpathConditions.push(`@data-testid`); // Regex will be checked later
         }
-        
+
         // Add class condition (check for existence, specific matches checked later)
         if (elementClass) {
           xpathConditions.push(`@class`);
         }
-        
+
         // Add attribute conditions
         if (elementAttribute) {
-          for (const [attrName, attrValue] of Object.entries(elementAttribute)) {
-            if (typeof attrValue === 'boolean') {
+          for (const [attrName, attrValue] of Object.entries(
+            elementAttribute
+          )) {
+            if (typeof attrValue === "boolean") {
               // Boolean: just check for attribute existence if true
-              if (attrValue && attrName !== 'disabled') {
+              if (attrValue && attrName !== "disabled") {
                 xpathConditions.push(`@${attrName}`);
               }
-            } else if (typeof attrValue === 'number') {
+            } else if (typeof attrValue === "number") {
               // Number: exact match
               xpathConditions.push(`@${attrName}="${attrValue}"`);
-            } else if (typeof attrValue === 'string' && !isRegexPattern(attrValue)) {
-              // String: exact match
-              xpathConditions.push(`@${attrName}="${attrValue}"`);
+            } else if (
+              typeof attrValue === "string" &&
+              !isRegexPattern(attrValue)
+            ) {
+              if (attrValue === "true") {
+                // Special case for boolean true as string
+                xpathConditions.push(`@${attrName}`);
+              } else {
+                // String: exact match
+                xpathConditions.push(`@${attrName}="${attrValue}"`);
+              }
             } else {
               // Regex: just check for attribute existence
               xpathConditions.push(`@${attrName}`);
             }
           }
         }
-        
+
         // Add text condition (check for text content existence)
         if (elementText) {
           xpathConditions.push(`normalize-space(text())`);
         }
-        
+
         // Build final XPath
         let xpath;
         if (xpathConditions.length > 0) {
-          xpath = `//*[${xpathConditions.join(' and ')}]`;
+          xpath = `//*[${xpathConditions.join(" and ")}]`;
         } else {
           // Fallback if only aria/regex criteria (can't be expressed in XPath easily)
           xpath = `//*`;
         }
-        
+
         const rawCandidates = await driver.$$(xpath);
-        candidates = Array.isArray(rawCandidates) ? rawCandidates : Array.from(rawCandidates || []);
+        candidates = Array.isArray(rawCandidates)
+          ? rawCandidates
+          : Array.from(rawCandidates || []);
       }
 
       // Skip if no candidates found
@@ -469,7 +483,7 @@ async function findElementByCriteria({
       // Filter candidates by all criteria - check elements sequentially to avoid hangs
       let matchedElement = null;
       let matchedCriteria = [];
-      
+
       for (const element of candidates) {
         try {
           // Check if element is valid and exists in DOM
@@ -507,7 +521,10 @@ async function findElementByCriteria({
 
           if (elementAttribute) {
             checks.push(matchesAttributes(element, elementAttribute));
-            checkTypes.push({ type: "elementAttribute", value: elementAttribute });
+            checkTypes.push({
+              type: "elementAttribute",
+              value: elementAttribute,
+            });
           }
 
           // If no checks were added, we can't match
@@ -535,7 +552,10 @@ async function findElementByCriteria({
             const actualValue = checkResult.value;
 
             // Handle different check types
-            if (checkType.type === "elementClass" || checkType.type === "elementAttribute") {
+            if (
+              checkType.type === "elementClass" ||
+              checkType.type === "elementAttribute"
+            ) {
               // These return boolean directly from helper functions
               if (!actualValue) {
                 allChecksPassed = false;
@@ -544,7 +564,10 @@ async function findElementByCriteria({
               elementCriteriaUsed.push(checkType.type);
             } else {
               // Text/aria/id/testId checks need pattern matching
-              if (!actualValue || !matchesPattern(actualValue, checkType.value)) {
+              if (
+                !actualValue ||
+                !matchesPattern(actualValue, checkType.value)
+              ) {
                 allChecksPassed = false;
                 break;
               }
@@ -566,7 +589,9 @@ async function findElementByCriteria({
 
       // Check if we found a match
       if (matchedElement) {
-        const allCriteria = selector ? ["selector", ...matchedCriteria] : matchedCriteria;
+        const allCriteria = selector
+          ? ["selector", ...matchedCriteria]
+          : matchedCriteria;
         return {
           element: matchedElement,
           foundBy: allCriteria,
