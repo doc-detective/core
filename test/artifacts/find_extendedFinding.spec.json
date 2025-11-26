@@ -287,7 +287,7 @@
             "selector": "button",
             "elementText": "Submit Order",
             "elementId": "primary-action",
-            "elementAttribute": { "disabled": "false" }
+            "elementAttribute": { "disabled": false }
           }
         }
       ]
