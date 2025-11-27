@@ -1,65 +1,26 @@
 {
-  "specId": "enhancedElementFinding",
+  "specId": "type_enhancedFinding",
   "tests": [
     {
-      "testId": "type-with-elementTestId",
       "steps": [
         {
           "goTo": "http://localhost:8092/enhanced-elements.html"
         },
         {
+          "stepId": "type-with-elementTestId",
           "type": {
             "elementTestId": "username-field",
             "keys": "testuser"
           }
-        }
-      ]
-    },
-    {
-      "testId": "type-with-elementAttribute",
-      "steps": [
-        {
-          "goTo": "http://localhost:8092/enhanced-elements.html"
         },
         {
+          "stepId": "type-with-elementAttribute",
           "type": {
             "elementAttribute": {
               "type": "email",
               "required": true
             },
             "keys": "test@example.com"
-          }
-        }
-      ]
-    },
-    {
-      "testId": "screenshot-with-crop-elementTestId",
-      "steps": [
-        {
-          "goTo": "http://localhost:8092/enhanced-elements.html"
-        },
-        {
-          "screenshot": {
-            "path": "enhanced-modal.png",
-            "crop": {
-              "elementTestId": "modal-close"
-            }
-          }
-        }
-      ]
-    },
-    {
-      "testId": "screenshot-with-crop-elementClass",
-      "steps": [
-        {
-          "goTo": "http://localhost:8092/enhanced-elements.html"
-        },
-        {
-          "screenshot": {
-            "path": "enhanced-modal-large.png",
-            "crop": {
-              "elementClass": ["modal", "modal-visible"]
-            }
           }
         }
       ]

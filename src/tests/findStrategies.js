@@ -223,10 +223,7 @@ async function findElementByShorthand({ string, timeout = 5000, driver }) {
   const testIdResult =
     results[4].status === "fulfilled" ? results[4].value : null;
 
-  // Apply precedence order: selector > elementText > elementAria > elementId > elementTestId
-  if (selectorResult && selectorResult.elementId) {
-    return { element: selectorResult, foundBy: "selector" };
-  }
+  // Apply precedence order: elementText > elementAria > elementId > elementTestId > selector
   if (textResult && textResult.elementId) {
     return { element: textResult, foundBy: "elementText" };
   }
@@ -238,6 +235,9 @@ async function findElementByShorthand({ string, timeout = 5000, driver }) {
   }
   if (testIdResult && testIdResult.elementId) {
     return { element: testIdResult, foundBy: "elementTestId" };
+  }
+  if (selectorResult && selectorResult.elementId) {
+    return { element: selectorResult, foundBy: "selector" };
   }
 
   // No matching elements
@@ -387,116 +387,225 @@ async function findElementByCriteria({
 
   const startTime = Date.now();
   const pollingInterval = 100; // Check every 100ms
-  let results = [];
 
   // Poll for elements until timeout
   while (Date.now() - startTime < timeout) {
     let candidates = [];
-    let criteriaUsed = [];
 
     try {
-      // Initial candidate selection based on most specific criteria
+      // Build a combined XPath that includes all non-regex criteria to minimize candidates
       if (selector) {
-        // Start with selector if provided
-        candidates = await driver.$$(selector);
-        criteriaUsed.push("selector");
+        // Use CSS selector directly
+        const rawCandidates = await driver.$$(selector);
+        candidates = Array.isArray(rawCandidates)
+          ? rawCandidates
+          : Array.from(rawCandidates || []);
       } else {
-        candidates = await driver.$$("//*");
+        // Build XPath with all applicable conditions combined
+        const xpathConditions = [];
+
+        // Add ID condition (exact match or check for existence)
+        if (elementId && !isRegexPattern(elementId)) {
+          xpathConditions.push(`@id="${elementId}"`);
+        } else if (elementId) {
+          xpathConditions.push(`@id`); // Regex will be checked later
+        }
+
+        // Add test ID condition (exact match or check for existence)
+        if (elementTestId && !isRegexPattern(elementTestId)) {
+          xpathConditions.push(`@data-testid="${elementTestId}"`);
+        } else if (elementTestId) {
+          xpathConditions.push(`@data-testid`); // Regex will be checked later
+        }
+
+        // Add class condition (check for existence, specific matches checked later)
+        if (elementClass) {
+          xpathConditions.push(`@class`);
+        }
+
+        // Add attribute conditions
+        if (elementAttribute) {
+          for (const [attrName, attrValue] of Object.entries(
+            elementAttribute
+          )) {
+            if (typeof attrValue === "boolean") {
+              // Boolean: just check for attribute existence if true
+              if (attrValue && attrName !== "disabled") {
+                xpathConditions.push(`@${attrName}`);
+              }
+            } else if (typeof attrValue === "number") {
+              // Number: exact match
+              xpathConditions.push(`@${attrName}="${attrValue}"`);
+            } else if (
+              typeof attrValue === "string" &&
+              !isRegexPattern(attrValue)
+            ) {
+              if (attrValue === "true") {
+                // Special case for boolean true as string
+                xpathConditions.push(`@${attrName}`);
+              } else {
+                // String: exact match
+                xpathConditions.push(`@${attrName}="${attrValue}"`);
+              }
+            } else {
+              // Regex: just check for attribute existence
+              xpathConditions.push(`@${attrName}`);
+            }
+          }
+        }
+
+        // Add text condition (check for text content existence)
+        if (elementText) {
+          xpathConditions.push(`normalize-space(text())`);
+        }
+
+        // Build final XPath
+        let xpath;
+        if (xpathConditions.length > 0) {
+          xpath = `//*[${xpathConditions.join(" and ")}]`;
+        } else {
+          // Fallback if only aria/regex criteria (can't be expressed in XPath easily)
+          xpath = `//*`;
+        }
+
+        const rawCandidates = await driver.$$(xpath);
+        candidates = Array.isArray(rawCandidates)
+          ? rawCandidates
+          : Array.from(rawCandidates || []);
       }
 
-      // Filter candidates by all criteria
-      const matchedElementPromises = candidates.map(async (element) => {
-        // Check if element is valid and exists in DOM
+      // Skip if no candidates found
+      if (candidates.length === 0) {
+        await new Promise((resolve) => setTimeout(resolve, pollingInterval));
+        continue;
+      }
+
+      // Filter candidates by all criteria - check elements sequentially to avoid hangs
+      let matchedElement = null;
+      let matchedCriteria = [];
+
+      for (const element of candidates) {
+        if (!elementText && !elementId && !elementTestId && !elementClass && !elementAttribute && !elementAria) {
+          // No criteria to check, should happen if only selector was used
+          matchedElement = element;
+          matchedCriteria = ["selector"];
+          break;
+        }
         try {
-          await element.isExisting(); // This will throw if element doesn't exist
+          // Check if element is valid and exists in DOM
+          const exists = await element.isExisting();
+          if (!exists) continue;
+
+          // Build array of check promises to run in parallel
+          const checks = [];
+          const checkTypes = [];
+
+          if (elementText) {
+            checks.push(element.getText());
+            checkTypes.push({ type: "elementText", value: elementText });
+          }
+
+          if (elementAria) {
+            checks.push(element.getComputedLabel());
+            checkTypes.push({ type: "elementAria", value: elementAria });
+          }
+
+          if (elementId) {
+            checks.push(element.getAttribute("id"));
+            checkTypes.push({ type: "elementId", value: elementId });
+          }
+
+          if (elementTestId) {
+            checks.push(element.getAttribute("data-testid"));
+            checkTypes.push({ type: "elementTestId", value: elementTestId });
+          }
+
+          if (elementClass) {
+            checks.push(hasAllClasses(element, elementClass));
+            checkTypes.push({ type: "elementClass", value: elementClass });
+          }
+
+          if (elementAttribute) {
+            checks.push(matchesAttributes(element, elementAttribute));
+            checkTypes.push({
+              type: "elementAttribute",
+              value: elementAttribute,
+            });
+          }
+
+          // If no checks were added, we can't match
+          if (checks.length === 0) {
+            continue;
+          }
+
+          // Execute all checks in parallel
+          const checkResults = await Promise.allSettled(checks);
+
+          // Track criteria matched for this element
+          const elementCriteriaUsed = [];
+          let allChecksPassed = true;
+
+          // Validate all check results
+          for (let i = 0; i < checkResults.length; i++) {
+            const checkResult = checkResults[i];
+            const checkType = checkTypes[i];
+
+            if (checkResult.status === "rejected") {
+              allChecksPassed = false;
+              break;
+            }
+
+            const actualValue = checkResult.value;
+
+            // Handle different check types
+            if (
+              checkType.type === "elementClass" ||
+              checkType.type === "elementAttribute"
+            ) {
+              // These return boolean directly from helper functions
+              if (!actualValue) {
+                allChecksPassed = false;
+                break;
+              }
+              elementCriteriaUsed.push(checkType.type);
+            } else {
+              // Text/aria/id/testId checks need pattern matching
+              if (
+                !actualValue ||
+                !matchesPattern(actualValue, checkType.value)
+              ) {
+                allChecksPassed = false;
+                break;
+              }
+              elementCriteriaUsed.push(checkType.type);
+            }
+          }
+
+          // If all checks passed, we found our element
+          if (allChecksPassed) {
+            matchedElement = element;
+            matchedCriteria = elementCriteriaUsed;
+            break; // Found a match, stop searching
+          }
         } catch {
-          return null; // Element doesn't exist, skip it
+          // Element might have become stale, skip it
+          continue;
         }
+      }
 
-        // Build array of check promises to run in parallel
-        const checks = [];
-        const checkTypes = [];
-
-        if (elementText) {
-          checks.push(element.getText());
-          checkTypes.push({ type: "elementText", value: elementText });
-        }
-
-        if (elementAria) {
-          checks.push(element.getComputedLabel());
-          checkTypes.push({ type: "elementAria", value: elementAria });
-        }
-
-        if (elementId) {
-          checks.push(element.getAttribute("id"));
-          checkTypes.push({ type: "elementId", value: elementId });
-        }
-
-        if (elementTestId) {
-          checks.push(element.getAttribute("data-testid"));
-          checkTypes.push({ type: "elementTestId", value: elementTestId });
-        }
-
-        // Normalize elementClass to array if it's a string
-        elementClass = Array.isArray(elementClass) ? elementClass : elementClass ? [elementClass] : undefined;
-        if (elementClass) {
-          checks.push(hasAllClasses(element, elementClass));
-          checkTypes.push({ type: "elementClass", value: elementClass });
-        }
-
-        if (elementAttribute) {
-          checks.push(matchesAttributes(element, elementAttribute));
-          checkTypes.push({ type: "elementAttribute", value: elementAttribute });
-        }
-
-        // Execute all checks in parallel
-        const results = await Promise.allSettled(checks);
-
-        // Validate all check results
-        for (let i = 0; i < results.length; i++) {
-          const result = results[i];
-          const checkType = checkTypes[i];
-
-          if (result.status === "rejected") {
-            return null; // Failed to get attribute/property
-          }
-
-          const actualValue = result.value;
-
-          // Handle different check types
-          if (checkType.type === "elementClass" || checkType.type === "elementAttribute") {
-            // These return boolean directly from helper functions
-            if (!actualValue) {
-              return null;
-            }
-            criteriaUsed.push(checkType.type);
-          } else {
-            // Text/aria/id/testId checks need pattern matching
-            if (!actualValue || !matchesPattern(actualValue, checkType.value)) {
-              return null;
-            }
-            criteriaUsed.push(checkType.type);
-          }
-        }
-
-        // If we reach here, the element matches all criteria
-        return element;
-      });
-
-      // Wait for all element checks to complete
-      const matchedElements = await matchedElementPromises;
-      results = await matchedElements.filter((el) => el !== null);
+      // Check if we found a match
+      if (matchedElement) {
+        const allCriteria = selector
+          ? ["selector", ...matchedCriteria]
+          : matchedCriteria;
+        return {
+          element: matchedElement,
+          foundBy: allCriteria,
+          error: null,
+        };
+      }
     } catch (error) {
       console.error("Error finding elements:", error);
-    }
-
-    // If we found matching elements, return the first one
-    if (results.length > 0) {
-      return {
-        element: results[0],
-        foundBy: criteriaUsed,
-        error: null,
-      };
     }
 
     // No matching elements found, wait before retrying
