@@ -223,10 +223,7 @@ async function findElementByShorthand({ string, timeout = 5000, driver }) {
   const testIdResult =
     results[4].status === "fulfilled" ? results[4].value : null;
 
-  // Apply precedence order: selector > elementText > elementAria > elementId > elementTestId
-  if (selectorResult && selectorResult.elementId) {
-    return { element: selectorResult, foundBy: "selector" };
-  }
+  // Apply precedence order: elementText > elementAria > elementId > elementTestId > selector
   if (textResult && textResult.elementId) {
     return { element: textResult, foundBy: "elementText" };
   }
@@ -238,6 +235,9 @@ async function findElementByShorthand({ string, timeout = 5000, driver }) {
   }
   if (testIdResult && testIdResult.elementId) {
     return { element: testIdResult, foundBy: "elementTestId" };
+  }
+  if (selectorResult && selectorResult.elementId) {
+    return { element: selectorResult, foundBy: "selector" };
   }
 
   // No matching elements
