@@ -485,6 +485,12 @@ async function findElementByCriteria({
       let matchedCriteria = [];
 
       for (const element of candidates) {
+        if (!elementText && !elementId && !elementTestId && !elementClass && !elementAttribute && !elementAria) {
+          // No criteria to check, should happen if only selector was used
+          matchedElement = element;
+          matchedCriteria = ["selector"];
+          break;
+        }
         try {
           // Check if element is valid and exists in DOM
           const exists = await element.isExisting();
