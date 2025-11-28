@@ -496,7 +496,7 @@ async function runSpecs({ resolvedTests }) {
         if (!supportedContext) {
           log(
             config,
-            "warning",
+            "info",
             `Skipping context. The current system doesn't support this context: {"platform": "${
               context.platform
             }", "apps": ${JSON.stringify(context.apps)}}`
