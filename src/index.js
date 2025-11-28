@@ -2,11 +2,11 @@ const {
   detectAndResolveTests,
 } = require("doc-detective-resolver");
 const { log, cleanTemp } = require("./utils");
-const { runSpecs, runViaApi, getDriver } = require("./tests");
+const { runSpecs, runViaApi, getRunner } = require("./tests");
 const { telemetryNotice, sendTelemetry } = require("./telem");
 
 exports.runTests = runTests;
-exports.getDriver = getDriver;
+exports.getRunner = getRunner;
 
 const supportMessage = `
 ##########################################################################
