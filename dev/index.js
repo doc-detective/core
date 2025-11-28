@@ -5,13 +5,13 @@ const { runTests } = require("../src");
  */
 async function main() {
   const json = {
-    input: "dev/dev.spec.json",
+    input: "test/artifacts/find_extendedFinding.spec.json",
     logLevel: "debug",
     runOn:[{
       platforms: ["linux","windows","mac"],
       browsers: [{
         name: "firefox",
-        headless: false
+        headless: true
       }]
     }],
     integrations: {

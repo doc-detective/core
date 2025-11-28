@@ -1,5 +1,8 @@
 const { validate } = require("doc-detective-common");
 const { Key } = require("webdriverio");
+const {
+  findElementByCriteria,
+} = require("./findStrategies");
 
 exports.typeKeys = typeKeys;
 
@@ -101,6 +104,43 @@ async function typeKeys({ config, step, driver }) {
     result.status = "SKIPPED";
     result.description = "No keys to type.";
     return result;
+  }
+
+  // Find element to type into if any criteria are specified
+  let element = null;
+  const hasElementCriteria = step.type.selector || step.type.elementText || 
+                             step.type.elementId || step.type.elementTestId || 
+                             step.type.elementClass || step.type.elementAttribute || 
+                             step.type.elementAria;
+  
+  if (hasElementCriteria) {
+    const { element: foundElement, error } = await findElementByCriteria({
+      selector: step.type.selector,
+      elementText: step.type.elementText,
+      elementId: step.type.elementId,
+      elementTestId: step.type.elementTestId,
+      elementClass: step.type.elementClass,
+      elementAttribute: step.type.elementAttribute,
+      elementAria: step.type.elementAria,
+      timeout: 5000,
+      driver,
+    });
+    
+    if (!foundElement) {
+      result.status = "FAIL";
+      result.description = error || `Couldn't find element to type into.`;
+      return result;
+    }
+    element = foundElement;
+    
+    // Focus on the element before typing
+    try {
+      await element.click();
+    } catch (error) {
+      result.status = "FAIL";
+      result.description = `Couldn't focus on element: ${error.message}`;
+      return result;
+    }
   }
 
   // Split into array of strings, each containing a single key
