@@ -5,7 +5,15 @@ const path = require("path");
 const fs = require("fs");
 const PNG = require("pngjs").PNG;
 const sharp = require("sharp");
-const pixelmatch = require("pixelmatch");
+
+// pixelmatch v7+ is ESM-only, so we need dynamic import
+let pixelmatch;
+async function getPixelmatch() {
+  if (!pixelmatch) {
+    pixelmatch = (await import("pixelmatch")).default;
+  }
+  return pixelmatch;
+}
 
 exports.saveScreenshot = saveScreenshot;
 
@@ -298,7 +306,8 @@ async function saveScreenshot({ config, step, driver }) {
       }
 
       const { width, height } = img1;
-      const numDiffPixels = pixelmatch(
+      const pixelmatchFn = await getPixelmatch();
+      const numDiffPixels = pixelmatchFn(
         img1.data,
         img2.data,
         null,
