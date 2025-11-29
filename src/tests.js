@@ -953,29 +953,31 @@ const platformMap = {
  * @param {number} [options.height=800] - Browser window height in pixels.
  * @param {boolean} [options.headless=true] - Whether to run browser in headless mode.
  * @returns {Promise<Object>} Object containing:
- *   - driver: WebDriver instance for browser automation
- *   - appium: Appium server process (use kill(appium.pid) to terminate)
+ *   - runner: WebDriver instance for browser automation
+ *   - appium: Appium server process (advanced use; prefer cleanup() for termination)
  *   - cleanup: Async function to properly cleanup driver and Appium server
+ *   - runStep: Function to execute Doc Detective test steps
  * @throws {Error} If Chrome is not available or driver initialization fails
  *
  * @example
- * const { driver, cleanup } = await getRunner({ headless: false });
+ * const { runner, cleanup } = await getRunner({ headless: false });
  * try {
- *   await driver.url('https://example.com');
+ *   await runner.url('https://example.com');
  *   // ... perform automation tasks
  * } finally {
  *   await cleanup();
  * }
  */
 async function getRunner(options = {}) {
-  const config = { ...options.config, environment: { platform: platformMap[process.platform] } };
+  const environment = getEnvironment();
+  const config = { ...options.config, environment };
   const width = options.width || 1200;
   const height = options.height || 800;
   const headless = options.headless !== false;
 
   // Get runner details
   const runnerDetails = {
-    environment: getEnvironment(),
+    environment,
     availableApps: await getAvailableApps({ config }),
   };
 
