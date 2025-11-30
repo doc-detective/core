@@ -937,12 +937,6 @@ async function driverStart(capabilities) {
   return driver;
 }
 
-const platformMap = {
-  win32: "windows",
-  darwin: "mac",
-  linux: "linux",
-};
-
 /**
  * Creates and returns a Chrome WebDriver instance with an Appium server.
  * This function is designed for use by external libraries that need a Doc Detective runner.
