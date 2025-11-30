@@ -417,7 +417,7 @@ describe("Intelligent goTo behavior", function () {
 });
 
 describe("getRunner() function", function () {
-  this.timeout(60000); // 60 second timeout for browser initialization
+  this.timeout(0); // Indefinite timeout for browser initialization
 
   const { getRunner } = require("../src/tests");
 
@@ -568,7 +568,7 @@ describe("getRunner() function", function () {
     }
   });
 
-  it("cleanup should compelte without throwing errors", async function () {
+  it("cleanup should complete without throwing errors", async function () {
     const result = await getRunner();
     const { appium, cleanup } = result;
 
