@@ -568,7 +568,7 @@ describe("getRunner() function", function () {
     }
   });
 
-  it("cleanup function should terminate Appium process", async function () {
+  it("cleanup should compelte without throwing errors", async function () {
     const result = await getRunner();
     const { appium, cleanup } = result;
 
@@ -577,11 +577,6 @@ describe("getRunner() function", function () {
 
     await cleanup();
 
-    // Give it a moment for process to terminate
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // On Windows, checking if process is killed is tricky
-    // We'll just verify cleanup doesn't throw
     assert.ok(true, "Cleanup should complete without error");
   });
 
