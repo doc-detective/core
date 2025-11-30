@@ -105,6 +105,11 @@ async function saveScreenshot({ config, step, driver }) {
         find: {
           selector: step.screenshot.crop?.selector,
           elementText: step.screenshot.crop?.elementText,
+          elementId: step.screenshot.crop?.elementId,
+          elementTestId: step.screenshot.crop?.elementTestId,
+          elementClass: step.screenshot.crop?.elementClass,
+          elementAttribute: step.screenshot.crop?.elementAttribute,
+          elementAria: step.screenshot.crop?.elementAria,
           timeout: step.screenshot.crop?.timeout,
         },
       };
@@ -146,18 +151,26 @@ async function saveScreenshot({ config, step, driver }) {
 
     // Check if element can fit in viewport
     if (
-      rect.x + rect.width + padding.right + padding.left > viewport.width ||
-      rect.y + rect.height + padding.top + padding.bottom > viewport.height
+      rect.width + padding.right + padding.left > viewport.width ||
+      rect.height + padding.top + padding.bottom > viewport.height
     ) {
       result.status = "FAIL";
       result.description = `Element can't fit in viewport.`;
       return result;
     }
 
-    // Scroll to element top + padding top
-    const scrollX = rect.x - padding.left;
-    const scrollY = rect.y - padding.top;
-    await driver.action("wheel").scroll({ x: scrollX, y: scrollY, duration: 0 });
+    // Scroll element into view at top-left with padding
+    await driver.execute(
+      (el, pad) => {
+        el.scrollIntoView({ block: "start", inline: "start", behavior: "instant" });
+        window.scrollBy(-pad.left, -pad.top);
+      },
+      element,
+      padding
+    );
+    
+    // Wait for scroll to complete
+    await driver.pause(100);
   }
 
   try {
@@ -197,8 +210,16 @@ async function saveScreenshot({ config, step, driver }) {
     // Get pixel density
     const pixelDensity = await driver.execute(() => window.devicePixelRatio);
 
-    // Get the bounding rectangle of the element
-    const rect = { ...(await element.getLocation()), ...(await element.getSize()) };
+    // Get the bounding rectangle of the element relative to the viewport after scroll
+    const rect = await driver.execute((el) => {
+      const bounds = el.getBoundingClientRect();
+      return {
+        x: bounds.left,
+        y: bounds.top,
+        width: bounds.width,
+        height: bounds.height
+      };
+    }, element);
     log(config, "debug", { rect });
 
     // Calculate the padding based on the provided padding values
