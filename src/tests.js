@@ -29,6 +29,7 @@ const { getEnvironment, getAvailableApps } = require("./config");
 
 exports.runSpecs = runSpecs;
 exports.runViaApi = runViaApi;
+exports.getRunner = getRunner;
 // exports.appiumStart = appiumStart;
 // exports.appiumIsReady = appiumIsReady;
 // exports.driverStart = driverStart;
@@ -258,7 +259,10 @@ async function runViaApi({ resolvedTests, apiKey, config = {} }) {
   try {
     createResponse = await axios.post(apiUrl, resolvedTests, axiosConfig);
   } catch (error) {
-    return { status: error.response?.status, error: error.response?.data?.error };
+    return {
+      status: error.response?.status,
+      error: error.response?.data?.error,
+    };
   }
   if (createResponse.status !== 201) {
     return { status: createResponse.status, error: createResponse.data.error };
@@ -276,7 +280,10 @@ async function runViaApi({ resolvedTests, apiKey, config = {} }) {
       axiosConfig
     );
   } catch (error) {
-    return { status: error.response?.status, error: error.response?.data?.error };
+    return {
+      status: error.response?.status,
+      error: error.response?.data?.error,
+    };
   }
   if (startResponse.status !== 200) {
     return { status: startResponse.status, error: startResponse.data.error };
@@ -295,7 +302,9 @@ async function runViaApi({ resolvedTests, apiKey, config = {} }) {
       return {
         status: 408,
         type: "TIMEOUT",
-        error: `Test execution exceeded maximum wait time of ${maxWaitTime / 1000} seconds`,
+        error: `Test execution exceeded maximum wait time of ${
+          maxWaitTime / 1000
+        } seconds`,
       };
     }
 
@@ -414,10 +423,10 @@ async function runSpecs({ resolvedTests }) {
       cwd: path.join(__dirname, ".."),
     });
     appium.stdout.on("data", (data) => {
-        // console.log(`stdout: ${data}`);
+      // console.log(`stdout: ${data}`);
     });
     appium.stderr.on("data", (data) => {
-        // console.error(`stderr: ${data}`);
+      // console.error(`stderr: ${data}`);
     });
     await appiumIsReady();
     log(config, "debug", "Appium is ready.");
@@ -793,11 +802,11 @@ async function runSpecs({ resolvedTests }) {
 
 // Run a specific step
 async function runStep({
-  config,
-  context,
+  config = {},
+  context = {},
   step,
   driver,
-  metaValues,
+  metaValues = {},
   options = {},
 }) {
   let actionResult;
@@ -876,7 +885,7 @@ async function runStep({
     };
   }
   // If recording, wait until browser is loaded, then instantiate cursor
-  if (config.recording) {
+  if (config?.recording) {
     const currentUrl = await driver.getUrl();
     if (currentUrl !== driver.state.url) {
       driver.state.url = currentUrl;
@@ -934,4 +943,122 @@ async function driverStart(capabilities) {
   });
   driver.state = { url: "", x: null, y: null };
   return driver;
+}
+
+/**
+ * Creates and returns a Chrome WebDriver instance with an Appium server.
+ * This function is designed for use by external libraries that need a Doc Detective runner.
+ *
+ * @param {Object} options - Configuration options for the runner.
+ * @param {Object} [options.config={}] - Doc Detective configuration object for logging.
+ * @param {number} [options.width=1200] - Browser window width in pixels.
+ * @param {number} [options.height=800] - Browser window height in pixels.
+ * @param {boolean} [options.headless=true] - Whether to run browser in headless mode.
+ * @returns {Promise<Object>} Object containing:
+ *   - runner: WebDriver instance for browser automation
+ *   - appium: Appium server process (advanced use; prefer cleanup() for termination)
+ *   - cleanup: Async function to properly cleanup driver and Appium server
+ *   - runStep: Function to execute Doc Detective test steps
+ * @throws {Error} If Chrome is not available or driver initialization fails
+ *
+ * @example
+ * const { runner, cleanup } = await getRunner({ headless: false });
+ * try {
+ *   await runner.url('https://example.com');
+ *   // ... perform automation tasks
+ * } finally {
+ *   await cleanup();
+ * }
+ */
+async function getRunner(options = {}) {
+  const environment = getEnvironment();
+  const config = { ...options.config, environment };
+  const width = options.width || 1200;
+  const height = options.height || 800;
+  const headless = options.headless !== false;
+
+  // Get runner details
+  const runnerDetails = {
+    environment,
+    availableApps: await getAvailableApps({ config }),
+  };
+
+  // Check if Chrome is available
+  const chrome = runnerDetails.availableApps.find(
+    (app) => app.name === "chrome"
+  );
+  if (!chrome) {
+    throw new Error(
+      "Chrome browser is not available. Please ensure Chrome is installed and accessible."
+    );
+  }
+
+  // Set Appium home directory
+  setAppiumHome();
+
+  // Start Appium server
+  const appium = spawn("npx", ["appium"], {
+    shell: true,
+    windowsHide: true,
+    cwd: path.join(__dirname, ".."),
+  });
+
+  // Wait for Appium to be ready
+  await appiumIsReady();
+  log(config, "debug", "Appium is ready for external driver.");
+
+  // Get Chrome driver capabilities
+  const caps = getDriverCapabilities({
+    runnerDetails: runnerDetails,
+    name: "chrome",
+    options: {
+      width,
+      height,
+      headless,
+    },
+  });
+
+  // Start the runner
+  let runner;
+  try {
+    runner = await driverStart(caps);
+  } catch (error) {
+    // If runner fails, attempt to set headless and retry
+    try {
+      log(
+        config,
+        "warning",
+        "Failed to start Chrome runner. Retrying as headless."
+      );
+      caps["goog:chromeOptions"].args.push("--headless", "--disable-gpu");
+      runner = await driverStart(caps);
+    } catch (error) {
+      // If runner fails, clean up Appium and rethrow
+      kill(appium.pid);
+      throw new Error(`Failed to start Chrome runner: ${error.message}`);
+    }
+  }
+
+  // Set window size
+  try {
+    await runner.setWindowSize(width, height);
+  } catch (error) {
+    log(config, "warning", `Failed to set window size: ${error.message}`);
+  }
+
+  // Create cleanup function
+  const cleanup = async () => {
+    try {
+      if (runner) {
+        await runner.deleteSession();
+      }
+    } catch (error) {
+      log(config, "error", `Failed to delete runner session: ${error.message}`);
+    }
+    if (appium) {
+      kill(appium.pid);
+    }
+  };
+
+  return { runner, appium, cleanup, runStep };
 }
