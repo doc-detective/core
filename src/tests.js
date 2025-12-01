@@ -259,7 +259,10 @@ async function runViaApi({ resolvedTests, apiKey, config = {} }) {
   try {
     createResponse = await axios.post(apiUrl, resolvedTests, axiosConfig);
   } catch (error) {
-    return { status: error.response?.status, error: error.response?.data?.error };
+    return {
+      status: error.response?.status,
+      error: error.response?.data?.error,
+    };
   }
   if (createResponse.status !== 201) {
     return { status: createResponse.status, error: createResponse.data.error };
@@ -277,7 +280,10 @@ async function runViaApi({ resolvedTests, apiKey, config = {} }) {
       axiosConfig
     );
   } catch (error) {
-    return { status: error.response?.status, error: error.response?.data?.error };
+    return {
+      status: error.response?.status,
+      error: error.response?.data?.error,
+    };
   }
   if (startResponse.status !== 200) {
     return { status: startResponse.status, error: startResponse.data.error };
@@ -296,7 +302,9 @@ async function runViaApi({ resolvedTests, apiKey, config = {} }) {
       return {
         status: 408,
         type: "TIMEOUT",
-        error: `Test execution exceeded maximum wait time of ${maxWaitTime / 1000} seconds`,
+        error: `Test execution exceeded maximum wait time of ${
+          maxWaitTime / 1000
+        } seconds`,
       };
     }
 
@@ -415,10 +423,10 @@ async function runSpecs({ resolvedTests }) {
       cwd: path.join(__dirname, ".."),
     });
     appium.stdout.on("data", (data) => {
-        // console.log(`stdout: ${data}`);
+      // console.log(`stdout: ${data}`);
     });
     appium.stderr.on("data", (data) => {
-        // console.error(`stderr: ${data}`);
+      // console.error(`stderr: ${data}`);
     });
     await appiumIsReady();
     log(config, "debug", "Appium is ready.");
@@ -1015,20 +1023,27 @@ async function getRunner(options = {}) {
   try {
     runner = await driverStart(caps);
   } catch (error) {
-    // If runner fails, clean up Appium and rethrow
-    kill(appium.pid);
-    throw new Error(`Failed to start Chrome runner: ${error.message}`);
+    // If runner fails, attempt to set headless and retry
+    try {
+      log(
+        config,
+        "warning",
+        "Failed to start Chrome runner. Retrying as headless."
+      );
+      caps["goog:chromeOptions"].args.push("--headless", "--disable-gpu");
+      runner = await driverStart(caps);
+    } catch (error) {
+      // If runner fails, clean up Appium and rethrow
+      kill(appium.pid);
+      throw new Error(`Failed to start Chrome runner: ${error.message}`);
+    }
   }
 
   // Set window size
   try {
     await runner.setWindowSize(width, height);
   } catch (error) {
-    log(
-      config,
-      "warning",
-      `Failed to set window size: ${error.message}`
-    );
+    log(config, "warning", `Failed to set window size: ${error.message}`);
   }
 
   // Create cleanup function
@@ -1038,11 +1053,7 @@ async function getRunner(options = {}) {
         await runner.deleteSession();
       }
     } catch (error) {
-      log(
-        config,
-        "error",
-        `Failed to delete runner session: ${error.message}`
-      );
+      log(config, "error", `Failed to delete runner session: ${error.message}`);
     }
     if (appium) {
       kill(appium.pid);
