@@ -149,8 +149,10 @@ async function runShell({ config, step }) {
         result.status = "WARNING";
         result.description =
           result.description +
-          ` The difference between the existing file content and command output content (${fractionalDiff.toFixed(2)}) is greater than the max accepted variation (${step.runShell.maxVariation}).`;
+          ` The difference between the existing output and the new output (${fractionalDiff.toFixed(2)}) is greater than the max accepted variation (${step.runShell.maxVariation}).`;
         return result;
+      } else {
+        result.description += ` Saved output to file.`;
       }
 
       if (step.runShell.overwrite == "true") {

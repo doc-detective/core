@@ -350,7 +350,7 @@ async function saveScreenshot({ config, step, driver }) {
           fs.renameSync(filePath, existFilePath);
         }
         result.status = "WARNING";
-        result.description += ` The difference between the existing file content and command output content (${fractionalDiff.toFixed(
+        result.description += ` The difference between the existing screenshot and new screenshot (${fractionalDiff.toFixed(
           2
         )}) is greater than the max accepted variation (${
           step.screenshot.maxVariation

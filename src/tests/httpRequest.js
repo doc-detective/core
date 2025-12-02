@@ -469,12 +469,14 @@ async function httpRequest({ config, step, openApiDefinitions = [] }) {
           );
         }
         result.status = "FAIL";
-        result.description += ` The difference between the existing file content and command output content (${fractionalDiff.toFixed(
+        result.description += ` The difference between the existing saved response and the new response (${fractionalDiff.toFixed(
           2
         )}) is greater than the max accepted variation (${
           step.httpRequest.maxVariation
         }).`;
         return result;
+      } else {
+        result.description += ` Saved response to file.`;
       }
 
       if (step.httpRequest.overwrite == "true") {
