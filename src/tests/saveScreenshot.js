@@ -357,7 +357,7 @@ async function saveScreenshot({ config, step, driver }) {
         }).`;
         return result;
       } else {
-        result.description += ` Screenshots are within maximum accepted variation: ${(fractionalDiff).toFixed(
+        result.description += ` Screenshots are within maximum accepted variation: ${fractionalDiff.toFixed(
           2
         )}.`;
         if (step.screenshot.overwrite != "true") {
