@@ -145,19 +145,19 @@ async function runShell({ config, step }) {
         if (step.runShell.overwrite == "aboveVariation") {
           // Overwrite file
           fs.writeFileSync(filePath, result.outputs.stdio.stdout);
+          result.description += ` Saved output to file.`;
         }
         result.status = "WARNING";
         result.description =
           result.description +
           ` The difference between the existing output and the new output (${fractionalDiff.toFixed(2)}) is greater than the max accepted variation (${step.runShell.maxVariation}).`;
         return result;
-      } else {
-        result.description += ` Saved output to file.`;
       }
 
       if (step.runShell.overwrite == "true") {
         // Overwrite file
         fs.writeFileSync(filePath, result.outputs.stdio.stdout);
+        result.description += ` Saved output to file.`;
       }
     }
   }

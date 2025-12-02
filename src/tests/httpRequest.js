@@ -467,21 +467,21 @@ async function httpRequest({ config, step, openApiDefinitions = [] }) {
             filePath,
             JSON.stringify(response.data, null, 2)
           );
+          result.description += ` Saved response to file.`;
         }
-        result.status = "FAIL";
+        result.status = "WARNING";
         result.description += ` The difference between the existing saved response and the new response (${fractionalDiff.toFixed(
           2
         )}) is greater than the max accepted variation (${
           step.httpRequest.maxVariation
         }).`;
         return result;
-      } else {
-        result.description += ` Saved response to file.`;
       }
 
       if (step.httpRequest.overwrite == "true") {
         // Overwrite file
         fs.writeFileSync(filePath, JSON.stringify(response.data, null, 2));
+        result.description += ` Saved response to file.`;
       }
     }
   }
