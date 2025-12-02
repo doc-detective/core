@@ -302,16 +302,18 @@ async function httpRequest({ config, step, openApiDefinitions = [] }) {
   // Validate required fields in response
   if (step.httpRequest.response?.required?.length > 0) {
     const missingFields = [];
-    
+
     for (const fieldPath of step.httpRequest.response.required) {
       if (!fieldExistsAtPath(response.data, fieldPath)) {
         missingFields.push(fieldPath);
       }
     }
-    
+
     if (missingFields.length > 0) {
       result.status = "FAIL";
-      result.description += ` Missing required fields: ${missingFields.join(", ")}`;
+      result.description += ` Missing required fields: ${missingFields.join(
+        ", "
+      )}`;
       return result;
     }
   }
@@ -451,14 +453,14 @@ async function httpRequest({ config, step, openApiDefinitions = [] }) {
       // Read existing file
       const existingFile = fs.readFileSync(filePath, "utf8");
 
-      // Calculate percentage diff between existing file content and command output content, not length
-      const percentDiff = calculatePercentageDifference(
+      // Calculate fractional diff between existing file content and command output content, not length
+      const fractionalDiff = calculatePercentageDifference(
         existingFile,
         JSON.stringify(response.data, null, 2)
       );
-      log(config, "debug", `Percentage difference: ${percentDiff}%`);
+      log(config, "debug", `Fractional difference: ${fractionalDiff}`);
 
-      if (percentDiff > step.httpRequest.maxVariation * 100) {
+      if (fractionalDiff > step.httpRequest.maxVariation) {
         if (step.httpRequest.overwrite == "aboveVariation") {
           // Overwrite file
           await fs.promises.writeFile(
@@ -467,9 +469,11 @@ async function httpRequest({ config, step, openApiDefinitions = [] }) {
           );
         }
         result.status = "FAIL";
-        result.description += ` The percentage difference between the existing file content and command output content (${percentDiff}%) is greater than the max accepted variation (${
-          step.httpRequest.maxVariation * 100
-        }%).`;
+        result.description += ` The difference between the existing file content and command output content (${fractionalDiff.toFixed(
+          2
+        )}) is greater than the max accepted variation (${
+          step.httpRequest.maxVariation
+        }).`;
         return result;
       }
 
@@ -487,7 +491,7 @@ async function httpRequest({ config, step, openApiDefinitions = [] }) {
 /**
  * Checks if a field exists at the specified path in an object.
  * Supports dot notation and array indices.
- * 
+ *
  * @param {Object} obj - The object to search
  * @param {string} path - The field path (e.g., "user.profile.name" or "items[0].id")
  * @returns {boolean} - True if the field exists, false otherwise
@@ -496,13 +500,13 @@ function fieldExistsAtPath(obj, path) {
   // Parse the path into segments
   // Handle both dot notation and array brackets
   const segments = path.match(/[^.[\]]+/g);
-  
+
   if (!segments) {
     return false;
   }
-  
+
   let current = obj;
-  
+
   // Traverse each segment
   for (const segment of segments) {
     // Treat as array index only if the segment is purely numeric (e.g., "0", "12")
@@ -516,13 +520,17 @@ function fieldExistsAtPath(obj, path) {
     } else {
       // Object property access
       // Use 'in' operator to check existence (works for null/undefined values)
-      if (typeof current !== 'object' || current === null || !(segment in current)) {
+      if (
+        typeof current !== "object" ||
+        current === null ||
+        !(segment in current)
+      ) {
         return false;
       }
       current = current[segment];
     }
   }
-  
+
   return true;
 }
 

@@ -286,7 +286,7 @@ async function saveScreenshot({ config, step, driver }) {
       fs.renameSync(filePath, existFilePath);
       return result;
     }
-    let percentDiff;
+    let fractionalDiff;
 
     // Perform numerical pixel diff with pixelmatch
     if (step.screenshot.maxVariation) {
@@ -336,28 +336,30 @@ async function saveScreenshot({ config, step, driver }) {
         height,
         { threshold: 0.0005 }
       );
-      percentDiff = (numDiffPixels / (width * height)) * 100;
+      fractionalDiff = numDiffPixels / (width * height);
 
       log(config, "debug", {
         totalPixels: width * height,
         numDiffPixels,
-        percentDiff,
+        fractionalDiff,
       });
 
-      if (percentDiff > step.screenshot.maxVariation) {
+      if (fractionalDiff > step.screenshot.maxVariation) {
         if (step.screenshot.overwrite == "aboveVariation") {
           // Replace old file with new file
           fs.renameSync(filePath, existFilePath);
         }
         result.status = "WARNING";
-        result.description += ` Screenshots are beyond maximum accepted variation: ${percentDiff.toFixed(
+        result.description += ` The difference between the existing file content and command output content (${fractionalDiff.toFixed(
           2
-        )}%.`;
+        )}) is greater than the max accepted variation (${
+          step.screenshot.maxVariation
+        }).`;
         return result;
       } else {
-        result.description += ` Screenshots are within maximum accepted variation: ${percentDiff.toFixed(
+        result.description += ` Screenshots are within maximum accepted variation: ${(fractionalDiff).toFixed(
           2
-        )}%.`;
+        )}.`;
         if (step.screenshot.overwrite != "true") {
           fs.unlinkSync(filePath);
         }

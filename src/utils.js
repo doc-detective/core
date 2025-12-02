@@ -267,8 +267,8 @@ async function inContainer() {
 function calculatePercentageDifference(text1, text2) {
   const distance = llevenshteinDistance(text1, text2);
   const maxLength = Math.max(text1.length, text2.length);
-  const percentageDiff = (distance / maxLength) * 100;
-  return percentageDiff.toFixed(2); // Returns the percentage difference as a string with two decimal places
+  const fractionalDiff = distance / maxLength;
+  return fractionalDiff; // Returns the fractional difference (0-1)
 }
 
 function llevenshteinDistance(s, t) {
