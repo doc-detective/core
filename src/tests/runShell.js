@@ -2,7 +2,7 @@ const { validate } = require("doc-detective-common");
 const {
   spawnCommand,
   log,
-  calculatePercentageDifference,
+  calculateFractionalDifference,
 } = require("../utils");
 const fs = require("fs");
 const path = require("path");
@@ -135,7 +135,7 @@ async function runShell({ config, step }) {
       const existingFile = fs.readFileSync(filePath, "utf8");
 
       // Calculate fractional diff between existing file content and command output content, not length
-      const fractionalDiff = calculatePercentageDifference(
+      const fractionalDiff = calculateFractionalDifference(
         existingFile,
         result.outputs.stdio.stdout
       );

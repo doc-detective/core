@@ -4,7 +4,7 @@ const fs = require("fs");
 const path = require("path");
 const Ajv = require("ajv");
 const { getOperation, loadDescription } = require("../openapi");
-const { log, calculatePercentageDifference, replaceEnvs } = require("../utils");
+const { log, calculateFractionalDifference, replaceEnvs } = require("../utils");
 
 exports.httpRequest = httpRequest;
 
@@ -454,7 +454,7 @@ async function httpRequest({ config, step, openApiDefinitions = [] }) {
       const existingFile = fs.readFileSync(filePath, "utf8");
 
       // Calculate fractional diff between existing file content and command output content, not length
-      const fractionalDiff = calculatePercentageDifference(
+      const fractionalDiff = calculateFractionalDifference(
         existingFile,
         JSON.stringify(response.data, null, 2)
       );

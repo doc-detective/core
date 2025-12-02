@@ -109,7 +109,7 @@ spec (file) → test → context (browser/platform combo) → step (action)
 - **Browser paths are platform-specific**: Use `getAvailableApps()` to detect installed browsers
 - **JSON pointer syntax**: Use `#/path/to/field` after meta value (e.g., `$$response#/body/users/0/name`)
 - **Viewport vs Window size**: `setViewportSize()` calculates delta to set inner dimensions
-- **Percentage variation** (`maxVariation`): Value is decimal (0.1 = 10%), but comparison uses percentage (multiply by 100)
+- **Fractional variation** (`maxVariation`): Value is a decimal fraction (0.1 = 10% tolerance). Comparisons use fractions directly.
 - **File overwrite modes**: "false" (never), "true" (always), "aboveVariation" (only if content differs > maxVariation)
 
 ## Testing Patterns
