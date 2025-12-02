@@ -130,7 +130,10 @@ async function saveScreenshot({ config, step, driver }) {
     }
     if (element) result.outputs.element = findResult.outputs.element;
     // Determine if element bounding box + padding is within viewport
-    const rect = { ...(await element.getLocation()), ...(await element.getSize()) };
+    const rect = {
+      ...(await element.getLocation()),
+      ...(await element.getSize()),
+    };
     const viewport = await driver.execute(() => {
       return {
         width: window.innerWidth,
@@ -162,13 +165,17 @@ async function saveScreenshot({ config, step, driver }) {
     // Scroll element into view at top-left with padding
     await driver.execute(
       (el, pad) => {
-        el.scrollIntoView({ block: "start", inline: "start", behavior: "instant" });
+        el.scrollIntoView({
+          block: "start",
+          inline: "start",
+          behavior: "instant",
+        });
         window.scrollBy(-pad.left, -pad.top);
       },
       element,
       padding
     );
-    
+
     // Wait for scroll to complete
     await driver.pause(100);
   }
@@ -217,7 +224,7 @@ async function saveScreenshot({ config, step, driver }) {
         x: bounds.left,
         y: bounds.top,
         width: bounds.width,
-        height: bounds.height
+        height: bounds.height,
       };
     }, element);
     log(config, "debug", { rect });

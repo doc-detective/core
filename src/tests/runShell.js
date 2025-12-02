@@ -94,7 +94,10 @@ async function runShell({ config, step }) {
       step.runShell.stdio.endsWith("/")
     ) {
       const regex = new RegExp(step.runShell.stdio.slice(1, -1));
-      if (!regex.test(result.outputs.stdio.stdout) && !regex.test(result.outputs.stdio.stderr)) {
+      if (
+        !regex.test(result.outputs.stdio.stdout) &&
+        !regex.test(result.outputs.stdio.stderr)
+      ) {
         result.status = "FAIL";
         result.description = `Couldn't find expected output (${step.runShell.stdio}) in actual output (stdout or stderr).`;
       }
@@ -150,7 +153,11 @@ async function runShell({ config, step }) {
         result.status = "WARNING";
         result.description =
           result.description +
-          ` The difference between the existing output and the new output (${fractionalDiff.toFixed(2)}) is greater than the max accepted variation (${step.runShell.maxVariation}).`;
+          ` The difference between the existing output and the new output (${fractionalDiff.toFixed(
+            2
+          )}) is greater than the max accepted variation (${
+            step.runShell.maxVariation
+          }).`;
         return result;
       }
 
