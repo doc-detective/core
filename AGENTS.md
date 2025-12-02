@@ -85,7 +85,7 @@ Three GitHub Actions workflows automate releases and testing:
 
 Tests follow nested hierarchy:
 
-```
+```text
 spec (file) → test → context (browser/platform combo) → step (action)
 ```
 
