@@ -130,7 +130,10 @@ async function saveScreenshot({ config, step, driver }) {
     }
     if (element) result.outputs.element = findResult.outputs.element;
     // Determine if element bounding box + padding is within viewport
-    const rect = { ...(await element.getLocation()), ...(await element.getSize()) };
+    const rect = {
+      ...(await element.getLocation()),
+      ...(await element.getSize()),
+    };
     const viewport = await driver.execute(() => {
       return {
         width: window.innerWidth,
@@ -162,13 +165,17 @@ async function saveScreenshot({ config, step, driver }) {
     // Scroll element into view at top-left with padding
     await driver.execute(
       (el, pad) => {
-        el.scrollIntoView({ block: "start", inline: "start", behavior: "instant" });
+        el.scrollIntoView({
+          block: "start",
+          inline: "start",
+          behavior: "instant",
+        });
         window.scrollBy(-pad.left, -pad.top);
       },
       element,
       padding
     );
-    
+
     // Wait for scroll to complete
     await driver.pause(100);
   }
@@ -217,7 +224,7 @@ async function saveScreenshot({ config, step, driver }) {
         x: bounds.left,
         y: bounds.top,
         width: bounds.width,
-        height: bounds.height
+        height: bounds.height,
       };
     }, element);
     log(config, "debug", { rect });
@@ -286,7 +293,7 @@ async function saveScreenshot({ config, step, driver }) {
       fs.renameSync(filePath, existFilePath);
       return result;
     }
-    let percentDiff;
+    let fractionalDiff;
 
     // Perform numerical pixel diff with pixelmatch
     if (step.screenshot.maxVariation) {
@@ -336,28 +343,30 @@ async function saveScreenshot({ config, step, driver }) {
         height,
         { threshold: 0.0005 }
       );
-      percentDiff = (numDiffPixels / (width * height)) * 100;
+      fractionalDiff = numDiffPixels / (width * height);
 
       log(config, "debug", {
         totalPixels: width * height,
         numDiffPixels,
-        percentDiff,
+        fractionalDiff,
       });
 
-      if (percentDiff > step.screenshot.maxVariation) {
+      if (fractionalDiff > step.screenshot.maxVariation) {
         if (step.screenshot.overwrite == "aboveVariation") {
           // Replace old file with new file
           fs.renameSync(filePath, existFilePath);
         }
         result.status = "WARNING";
-        result.description += ` Screenshots are beyond maximum accepted variation: ${percentDiff.toFixed(
+        result.description += ` The difference between the existing screenshot and new screenshot (${fractionalDiff.toFixed(
           2
-        )}%.`;
+        )}) is greater than the max accepted variation (${
+          step.screenshot.maxVariation
+        }).`;
         return result;
       } else {
-        result.description += ` Screenshots are within maximum accepted variation: ${percentDiff.toFixed(
+        result.description += ` Screenshots are within maximum accepted variation: ${fractionalDiff.toFixed(
           2
-        )}%.`;
+        )}.`;
         if (step.screenshot.overwrite != "true") {
           fs.unlinkSync(filePath);
         }
