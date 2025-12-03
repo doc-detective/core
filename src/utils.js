@@ -12,7 +12,7 @@ exports.replaceEnvs = replaceEnvs;
 exports.spawnCommand = spawnCommand;
 exports.inContainer = inContainer;
 exports.cleanTemp = cleanTemp;
-exports.calculatePercentageDifference = calculatePercentageDifference;
+exports.calculateFractionalDifference = calculateFractionalDifference;
 exports.fetchFile = fetchFile;
 exports.isRelativeUrl = isRelativeUrl;
 
@@ -264,11 +264,20 @@ async function inContainer() {
   return false;
 }
 
-function calculatePercentageDifference(text1, text2) {
+/**
+ * Calculates the fractional difference between two strings using Levenshtein distance.
+ * @param {string} text1 - First string to compare
+ * @param {string} text2 - Second string to compare
+ * @returns {number} Fractional difference between 0 and 1, where 0 means identical
+ *                   and 1 means completely different. Compare against maxVariation
+ *                   thresholds directly (e.g., 0.1 for 10% tolerance).
+ */
+function calculateFractionalDifference(text1, text2) {
   const distance = llevenshteinDistance(text1, text2);
   const maxLength = Math.max(text1.length, text2.length);
-  const percentageDiff = (distance / maxLength) * 100;
-  return percentageDiff.toFixed(2); // Returns the percentage difference as a string with two decimal places
+  if (maxLength === 0) return 0; // Both strings are empty
+  const fractionalDiff = distance / maxLength;
+  return fractionalDiff;
 }
 
 function llevenshteinDistance(s, t) {
