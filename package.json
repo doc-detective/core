@@ -1,6 +1,6 @@
 {
   "name": "doc-detective-core",
-  "version": "3.6.0-dev.2",
+  "version": "3.6.1",
   "description": "The doc testing framework.",
   "main": "src/index.js",
   "scripts": {
@@ -33,8 +33,8 @@
     "ajv": "^8.17.1",
     "appium": "^3.1.1",
     "appium-chromium-driver": "^2.0.3",
-    "appium-geckodriver": "^2.1.1",
-    "appium-safari-driver": "^4.1.0",
+    "appium-geckodriver": "^2.1.2",
+    "appium-safari-driver": "^4.1.2",
     "axios": "^1.13.2",
     "doc-detective-common": "^3.6.0",
     "doc-detective-resolver": "^3.6.0",
