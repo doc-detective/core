@@ -877,7 +877,7 @@ async function runStep({
       driver: driver,
     });
   } else if (typeof step.wait !== "undefined") {
-    actionResult = await wait({ step: step });
+    actionResult = await wait({ step: step, driver: driver });
   } else {
     actionResult = {
       status: "FAIL",
