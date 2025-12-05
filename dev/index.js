@@ -1,5 +1,6 @@
 const { runTests } = require("../src");
-require("dotenv").config({path: '../../.env'});
+const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, ".env") });
 
 /**
  * Run tests with a predefined configuration and print the result as pretty-printed JSON.
@@ -28,7 +29,7 @@ async function main() {
           name: "example",
           organizationId: process.env.HERETTO_ORG_ID, // Organization ID is the subdomain of your Heretto instance (e.g., "silva" for "silva.heretto.com")
           username: process.env.HERETTO_USERNAME, // Your Heretto username/email
-          apiToken: process.env.HERETTO_API_TOKEN, // Your Heretto API token (https://help.heretto.com/en/heretto-ccms/api/ccms-api-authentication/basic-authentication)
+          apiToken: process.env.HERETTO_TOKEN, // Your Heretto API token (https://help.heretto.com/en/heretto-ccms/api/ccms-api-authentication/basic-authentication)
         },
       ],
     },
