@@ -27,8 +27,7 @@ async function main() {
           name: "heretto-example",
           organizationId: "silva", // Organization ID is the subdomain of your Heretto instance (e.g., "silva" for "silva.heretto.com")
           username: "manny@doc-detective.com", // Your Heretto username/email
-          apiToken: "6FE4PB2/UB+jd9f/UY0+y8CO5Z+yOXrPXxY7k2vqjiAT17Ptg/V6nzpPCxoRKafL", // Your Heretto API token (https://help.heretto.com/en/heretto-ccms/api/ccms-api-authentication/basic-authentication)
-          fileId: "8ecfdb21-0c17-4dd8-b4d4-866eb54e5594", // The ID of the file you want to work with
+          apiToken: "", // Your Heretto API token (https://help.heretto.com/en/heretto-ccms/api/ccms-api-authentication/basic-authentication)
         },
       ],
     },
