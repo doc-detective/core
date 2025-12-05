@@ -26,7 +26,7 @@ async function main() {
         {
           name: "heretto-example",
           organizationId: "silva", // Organization ID is the subdomain of your Heretto instance (e.g., "silva" for "silva.heretto.com")
-          username: "manny@doc-detective.com", // Your Heretto username/email
+          username: "", // Your Heretto username/email
           apiToken: "", // Your Heretto API token (https://help.heretto.com/en/heretto-ccms/api/ccms-api-authentication/basic-authentication)
         },
       ],
