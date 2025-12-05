@@ -6,6 +6,7 @@ require("dotenv").config({path: '../../.env'});
  */
 async function main() {
   const json = {
+    input: ["heretto:example"],
     logLevel: "debug",
     runOn: [
       {
@@ -24,10 +25,10 @@ async function main() {
       },
       heretto: [
         {
-          name: "heretto-example",
-          organizationId: "silva", // Organization ID is the subdomain of your Heretto instance (e.g., "silva" for "silva.heretto.com")
-          username: "", // Your Heretto username/email
-          apiToken: "", // Your Heretto API token (https://help.heretto.com/en/heretto-ccms/api/ccms-api-authentication/basic-authentication)
+          name: "example",
+          organizationId: process.env.HERETTO_ORG_ID, // Organization ID is the subdomain of your Heretto instance (e.g., "silva" for "silva.heretto.com")
+          username: process.env.HERETTO_USERNAME, // Your Heretto username/email
+          apiToken: process.env.HERETTO_API_TOKEN, // Your Heretto API token (https://help.heretto.com/en/heretto-ccms/api/ccms-api-authentication/basic-authentication)
         },
       ],
     },
