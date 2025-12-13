@@ -33,7 +33,12 @@ function cleanTemp() {
   if (fs.existsSync(tempDir)) {
     fs.readdirSync(tempDir).forEach((file) => {
       const curPath = `${tempDir}/${file}`;
-      fs.unlinkSync(curPath);
+      const stat = fs.statSync(curPath);
+      if (stat.isDirectory()) {
+        fs.rmSync(curPath, { recursive: true, force: true });
+      } else {
+        fs.unlinkSync(curPath);
+      }
     });
   }
 }
