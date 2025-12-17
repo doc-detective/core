@@ -2,8 +2,9 @@ const { validate } = require("doc-detective-common");
 
 exports.wait = wait;
 
-// Open a URI in the browser
-async function wait({ step }) {
+// Wait for a specified duration
+// Uses driver.pause() when a driver is available for proper browser synchronization
+async function wait({ step, driver }) {
   let result = { status: "PASS", description: "Waited." };
 
   // Validate step payload
@@ -36,7 +37,15 @@ async function wait({ step }) {
 
   // Run action
   try {
-    await new Promise((r) => setTimeout(r, step.wait));
+    // Use driver.pause() when a driver is available for proper browser synchronization.
+    // This ensures the WebDriver session stays in sync with the browser's actual state,
+    // which is critical for finding elements that are dynamically rendered by JavaScript.
+    // A simple setTimeout() only pauses Node.js and can leave the WebDriver session stale.
+    if (driver) {
+      await driver.pause(step.wait);
+    } else {
+      await new Promise((r) => setTimeout(r, step.wait));
+    }
   } catch (error) {
     // FAIL: Error waiting
     result.status = "FAIL";
