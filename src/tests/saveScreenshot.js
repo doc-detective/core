@@ -21,7 +21,9 @@ async function saveScreenshot({ config, step, driver }) {
   let result = {
     status: "PASS",
     description: "Saved screenshot.",
-    outputs: {},
+    outputs: {
+      changed: false, // Indicates if screenshot was changed/replaced
+    },
   };
   let element;
 
@@ -362,15 +364,35 @@ async function saveScreenshot({ config, step, driver }) {
         )}) is greater than the max accepted variation (${
           step.screenshot.maxVariation
         }).`;
+        result.outputs.changed = true;
+        result.outputs.screenshotPath = existFilePath;
+        // Preserve sourceIntegration metadata for upload processing
+        if (step.screenshot.sourceIntegration) {
+          result.outputs.sourceIntegration = step.screenshot.sourceIntegration;
+        }
         return result;
       } else {
         result.description += ` Screenshots are within maximum accepted variation: ${fractionalDiff.toFixed(
           2
         )}.`;
+        result.outputs.screenshotPath = existFilePath;
+        // Preserve sourceIntegration metadata
+        if (step.screenshot.sourceIntegration) {
+          result.outputs.sourceIntegration = step.screenshot.sourceIntegration;
+        }
         if (step.screenshot.overwrite != "true") {
           fs.unlinkSync(filePath);
         }
       }
+    }
+  }
+
+  // Set output path for new screenshots
+  if (!result.outputs.screenshotPath) {
+    result.outputs.screenshotPath = filePath;
+    // Preserve sourceIntegration metadata
+    if (step.screenshot.sourceIntegration) {
+      result.outputs.sourceIntegration = step.screenshot.sourceIntegration;
     }
   }
 

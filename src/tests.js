@@ -26,6 +26,7 @@ const { randomUUID } = require("crypto");
 const { setAppiumHome } = require("./appium");
 const { resolveExpression } = require("./expressions");
 const { getEnvironment, getAvailableApps } = require("./config");
+const { uploadChangedFiles } = require("./integrations");
 
 exports.runSpecs = runSpecs;
 exports.runViaApi = runViaApi;
@@ -795,6 +796,24 @@ async function runSpecs({ resolvedTests }) {
   if (appium) {
     log(config, "debug", "Closing Appium server");
     kill(appium.pid);
+  }
+
+  // Upload changed files back to source integrations (best-effort)
+  // This automatically syncs any changed screenshots back to their source CMS
+  if (config?.integrations?.heretto?.length > 0) {
+    try {
+      const uploadResults = await uploadChangedFiles({ config, report, log });
+      report.uploadResults = uploadResults;
+    } catch (error) {
+      log(config, "warning", `Failed to upload changed files: ${error.message}`);
+      report.uploadResults = {
+        total: 0,
+        successful: 0,
+        failed: 0,
+        skipped: 0,
+        error: error.message,
+      };
+    }
   }
 
   return report;
