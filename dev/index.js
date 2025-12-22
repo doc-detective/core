@@ -8,6 +8,7 @@ require("dotenv").config({ path: path.join(__dirname, ".env") });
 async function main() {
   const json = {
     input: ["heretto:example"],
+    // input: ["c:\\Users\\hawkeyexl\\AppData\\Local\\Temp\\doc-detective\\heretto_c96e625d5c1ee50972362046445a5ca4\\ot-output\\dita\\_topics\\espresso.dita"],
     logLevel: "debug",
     runOn: [
       {
@@ -30,6 +31,7 @@ async function main() {
           organizationId: process.env.HERETTO_ORG_ID, // Organization ID is the subdomain of your Heretto instance (e.g., "silva" for "silva.heretto.com")
           username: process.env.HERETTO_USERNAME, // Your Heretto username/email
           apiToken: process.env.HERETTO_TOKEN, // Your Heretto API token (https://help.heretto.com/en/heretto-ccms/api/ccms-api-authentication/basic-authentication)
+          uploadOnChange: true, // Upload changed screenshots back to Heretto
         },
       ],
     },

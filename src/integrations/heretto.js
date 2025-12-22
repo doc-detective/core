@@ -43,32 +43,124 @@ class HerettoUploader {
       return result;
     }
 
-    if (!integrationConfig.apiBaseUrl || !integrationConfig.apiToken) {
-      result.description = "Heretto integration missing apiBaseUrl or apiToken";
+    if (!integrationConfig.organizationId || !integrationConfig.apiToken) {
+      result.description = "Heretto integration missing organizationId or apiToken";
       return result;
     }
 
-    // Resolve the file ID
+    // Construct the API base URL from organizationId
+    const apiBaseUrl = `https://${integrationConfig.organizationId}.heretto.com`;
+
+    // Resolve the file ID using resource dependencies map
     let fileId = sourceIntegration.fileId;
+    let parentFolderId = sourceIntegration.parentFolderId;
+    const filename = path.basename(sourceIntegration.filePath);
+    const relativeFilePath = sourceIntegration.filePath;
+
+    // Try to resolve from resource dependencies map first (most accurate)
+    if (!fileId && integrationConfig.resourceDependencies) {
+      const resolvedFile = this.resolveFromDependencies({
+        resourceDependencies: integrationConfig.resourceDependencies,
+        filePath: relativeFilePath,
+        filename,
+        log: (level, msg) => log(config, level, msg),
+      });
+      
+      if (resolvedFile) {
+        fileId = resolvedFile.uuid;
+        if (!parentFolderId && resolvedFile.parentFolderId) {
+          parentFolderId = resolvedFile.parentFolderId;
+        }
+        log(config, "debug", `Resolved from dependencies: ${relativeFilePath} -> ${fileId}`);
+      }
+    }
 
     if (!fileId) {
       log(config, "debug", `No fileId found, searching for file by path: ${sourceIntegration.filePath}`);
       
       try {
         fileId = await this.searchFileByName({
-          apiBaseUrl: integrationConfig.apiBaseUrl,
+          apiBaseUrl,
           apiToken: integrationConfig.apiToken,
           username: integrationConfig.username || "",
-          filename: path.basename(sourceIntegration.filePath),
+          filename,
           log: (level, msg) => log(config, level, msg),
         });
 
+        // If file not found, try to create it in the parent folder
         if (!fileId) {
-          result.description = `Could not find file in Heretto: ${sourceIntegration.filePath}`;
-          return result;
+          // Try to find parent folder from resource dependencies
+          if (!parentFolderId && integrationConfig.resourceDependencies) {
+            parentFolderId = this.findParentFolderFromDependencies({
+              resourceDependencies: integrationConfig.resourceDependencies,
+              filePath: relativeFilePath,
+              log: (level, msg) => log(config, level, msg),
+            });
+          }
+          
+          // Fall back to folder search if not found in dependencies
+          if (!parentFolderId && relativeFilePath) {
+            const parentDirPath = path.dirname(relativeFilePath);
+            if (parentDirPath && parentDirPath !== ".") {
+              const folderName = path.basename(parentDirPath);
+              log(config, "debug", `File not found, searching for parent folder: ${folderName}`);
+              
+              parentFolderId = await this.searchFolderByName({
+                apiBaseUrl,
+                apiToken: integrationConfig.apiToken,
+                username: integrationConfig.username || "",
+                folderName,
+                log: (level, msg) => log(config, level, msg),
+              });
+            }
+          }
+
+          if (parentFolderId) {
+            log(config, "debug", `Creating new document in folder: ${parentFolderId}`);
+            
+            const mimeType = this.getContentType(localFilePath);
+            const createResult = await this.createDocument({
+              apiBaseUrl,
+              apiToken: integrationConfig.apiToken,
+              username: integrationConfig.username || "",
+              parentFolderId,
+              filename,
+              mimeType,
+              log: (level, msg) => log(config, level, msg),
+            });
+
+            if (createResult.created) {
+              fileId = createResult.documentId;
+              log(config, "info", `Created new document in Heretto with ID: ${fileId}`);
+            } else if (createResult.existsInFolder) {
+              // File already exists in folder - get its ID
+              log(config, "debug", `File already exists in folder, searching for its ID`);
+              fileId = await this.getFileInFolder({
+                apiBaseUrl,
+                apiToken: integrationConfig.apiToken,
+                username: integrationConfig.username || "",
+                folderId: parentFolderId,
+                filename,
+                log: (level, msg) => log(config, level, msg),
+              });
+              
+              if (fileId) {
+                log(config, "info", `Found existing document in folder with ID: ${fileId}`);
+              } else {
+                result.description = `File exists in folder but could not get its ID: ${filename}`;
+                return result;
+              }
+            } else {
+              result.description = `Failed to create document in Heretto: ${filename}`;
+              return result;
+            }
+          } else {
+            result.description = `Could not find file or parent folder in Heretto: ${sourceIntegration.filePath}`;
+            return result;
+          }
         }
       } catch (error) {
-        result.description = `Error searching for file: ${error.message}`;
+        result.description = `Error searching/creating file: ${error.message}`;
         return result;
       }
     }
@@ -85,7 +177,7 @@ class HerettoUploader {
     // Upload to Heretto
     try {
       await this.uploadFile({
-        apiBaseUrl: integrationConfig.apiBaseUrl,
+        apiBaseUrl,
         apiToken: integrationConfig.apiToken,
         username: integrationConfig.username || "",
         documentId: fileId,
@@ -104,6 +196,356 @@ class HerettoUploader {
   }
 
   /**
+   * Resolves a file path to its UUID using the resource dependencies map.
+   * @param {Object} options - Resolution options
+   * @returns {Object|null} File info with uuid and parentFolderId, or null if not found
+   */
+  resolveFromDependencies({ resourceDependencies, filePath, filename, log }) {
+    if (!resourceDependencies) return null;
+    
+    // Normalize the file path for comparison
+    const normalizedPath = filePath.replace(/\\/g, "/").replace(/^\.\//, "").replace(/^\.\.\//, "");
+    
+    // Try exact path match first
+    for (const [depPath, info] of Object.entries(resourceDependencies)) {
+      if (depPath.startsWith("_")) continue; // Skip internal keys
+      
+      const normalizedDepPath = depPath.replace(/\\/g, "/");
+      
+      // Check if paths match (accounting for relative path variations)
+      if (normalizedDepPath === normalizedPath ||
+          normalizedDepPath.endsWith("/" + normalizedPath) ||
+          normalizedDepPath.endsWith(normalizedPath)) {
+        log("debug", `Found exact path match in dependencies: ${depPath}`);
+        return info;
+      }
+    }
+    
+    // Try filename match with parent folder context
+    const parentDir = path.dirname(normalizedPath);
+    const parentFolderName = path.basename(parentDir);
+    
+    for (const [depPath, info] of Object.entries(resourceDependencies)) {
+      if (depPath.startsWith("_")) continue;
+      
+      const depFilename = path.basename(depPath);
+      const depParentDir = path.dirname(depPath);
+      const depParentFolderName = path.basename(depParentDir);
+      
+      // Match by filename and parent folder name
+      if (depFilename === filename && depParentFolderName === parentFolderName) {
+        log("debug", `Found filename+folder match in dependencies: ${depPath}`);
+        return info;
+      }
+    }
+    
+    // Try filename-only match as last resort
+    for (const [depPath, info] of Object.entries(resourceDependencies)) {
+      if (depPath.startsWith("_")) continue;
+      
+      const depFilename = path.basename(depPath);
+      if (depFilename === filename) {
+        log("debug", `Found filename match in dependencies: ${depPath}`);
+        return info;
+      }
+    }
+    
+    log("debug", `No match found in dependencies for: ${filePath}`);
+    return null;
+  }
+
+  /**
+   * Finds the parent folder ID for a file path using resource dependencies.
+   * @param {Object} options - Resolution options
+   * @returns {string|null} Parent folder UUID or null if not found
+   */
+  findParentFolderFromDependencies({ resourceDependencies, filePath, log }) {
+    if (!resourceDependencies) return null;
+    
+    // Normalize path and get parent directory
+    const normalizedPath = filePath.replace(/\\/g, "/").replace(/^\.\//, "").replace(/^\.\.\//, "");
+    const parentDir = path.dirname(normalizedPath);
+    const targetFolderName = path.basename(parentDir);
+    
+    log("debug", `Looking for parent folder '${targetFolderName}' in dependencies`);
+    
+    // Find a sibling file in the same folder to get the parent folder ID
+    for (const [depPath, info] of Object.entries(resourceDependencies)) {
+      if (depPath.startsWith("_")) continue;
+      
+      const depParentDir = path.dirname(depPath);
+      const depFolderName = path.basename(depParentDir);
+      
+      // If we find a file in the same folder, use its parent folder ID
+      if (depFolderName === targetFolderName && info.parentFolderId) {
+        log("debug", `Found sibling file ${depPath} with parent folder ID: ${info.parentFolderId}`);
+        return info.parentFolderId;
+      }
+    }
+    
+    // Alternative: look for folder paths in the dependencies
+    for (const [depPath, info] of Object.entries(resourceDependencies)) {
+      if (depPath.startsWith("_")) continue;
+      
+      // Check if this is the folder itself (ends with folder name)
+      if (depPath.endsWith("/" + targetFolderName) || depPath === targetFolderName) {
+        log("debug", `Found folder ${depPath} with ID: ${info.uuid}`);
+        return info.uuid;
+      }
+    }
+    
+    // Fallback: use the ditamap's parent folder ID if available
+    // This is useful when the target folder doesn't exist yet - we can create it
+    // as a sibling to the ditamap
+    if (resourceDependencies._ditamapParentFolderId) {
+      log("debug", `Using ditamap parent folder as fallback: ${resourceDependencies._ditamapParentFolderId}`);
+      return resourceDependencies._ditamapParentFolderId;
+    }
+    
+    log("debug", `Could not find parent folder '${targetFolderName}' in dependencies`);
+    return null;
+  }
+
+  /**
+   * Creates a new document in Heretto.
+   * @param {Object} options - Creation options
+   * @returns {Promise<Object>} Result with created: boolean, documentId: string (if successful or already exists)
+   */
+  async createDocument({ apiBaseUrl, apiToken, username, parentFolderId, filename, mimeType, log }) {
+    const createUrl = new URL(`/rest/all-files/${parentFolderId}`, apiBaseUrl);
+    
+    const createBody = `<resource><name>${this.escapeXml(filename)}</name><mime-type>${mimeType}</mime-type></resource>`;
+
+    return new Promise((resolve, reject) => {
+      const protocol = createUrl.protocol === "https:" ? https : http;
+      const authString = Buffer.from(`${username}:${apiToken}`).toString("base64");
+
+      const options = {
+        hostname: createUrl.hostname,
+        port: createUrl.port || (createUrl.protocol === "https:" ? 443 : 80),
+        path: createUrl.pathname,
+        method: "POST",
+        headers: {
+          "Content-Type": "application/xml",
+          "Authorization": `Basic ${authString}`,
+          "Content-Length": Buffer.byteLength(createBody),
+        },
+      };
+
+      log("debug", `Creating document at ${createUrl.toString()}`);
+
+      const req = protocol.request(options, (res) => {
+        let data = "";
+
+        res.on("data", (chunk) => {
+          data += chunk;
+        });
+
+        res.on("end", () => {
+          if (res.statusCode === 200 || res.statusCode === 201) {
+            try {
+              // Parse the XML response to extract the document ID
+              // Response format: <resource id="uuid">...</resource>
+              const idMatch = data.match(/id="([^"]+)"/);
+              if (idMatch && idMatch[1]) {
+                log("debug", `Document created successfully with ID: ${idMatch[1]}`);
+                resolve({ created: true, documentId: idMatch[1] });
+              } else {
+                log("warning", `Document created but could not parse ID from response: ${data}`);
+                reject(new Error("Could not parse document ID from create response"));
+              }
+            } catch (parseError) {
+              reject(new Error(`Failed to parse create response: ${parseError.message}`));
+            }
+          } else if (res.statusCode === 400 && data.includes("already exists")) {
+            // File already exists in this folder - we need to find its ID
+            log("debug", `Document already exists in folder, will search for existing file`);
+            resolve({ created: false, existsInFolder: true, parentFolderId });
+          } else {
+            reject(new Error(`Create document failed with status ${res.statusCode}: ${data}`));
+          }
+        });
+      });
+
+      req.on("error", (error) => {
+        reject(new Error(`Create document request error: ${error.message}`));
+      });
+
+      req.write(createBody);
+      req.end();
+    });
+  }
+
+  /**
+   * Gets file information from a specific folder.
+   * @param {Object} options - Options
+   * @returns {Promise<string|null>} File ID if found, null otherwise
+   */
+  async getFileInFolder({ apiBaseUrl, apiToken, username, folderId, filename, log }) {
+    const folderUrl = new URL(`/rest/all-files/${folderId}`, apiBaseUrl);
+
+    return new Promise((resolve, reject) => {
+      const protocol = folderUrl.protocol === "https:" ? https : http;
+      const authString = Buffer.from(`${username}:${apiToken}`).toString("base64");
+
+      const options = {
+        hostname: folderUrl.hostname,
+        port: folderUrl.port || (folderUrl.protocol === "https:" ? 443 : 80),
+        path: folderUrl.pathname,
+        method: "GET",
+        headers: {
+          "Authorization": `Basic ${authString}`,
+          "Accept": "application/xml",
+        },
+      };
+
+      log("debug", `Getting folder contents: ${folderUrl.toString()}`);
+
+      const req = protocol.request(options, (res) => {
+        let data = "";
+
+        res.on("data", (chunk) => {
+          data += chunk;
+        });
+
+        res.on("end", () => {
+          if (res.statusCode === 200) {
+            try {
+              // Parse XML to find the file by name
+              // Looking for child resources with matching name
+              // Example: <resource id="uuid" name="filename">...
+              const escapedFilename = filename.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+              const nameIdMatch = data.match(new RegExp(`id="([^"]+)"[^>]*name="${escapedFilename}"`, 'i'));
+              const idNameMatch = data.match(new RegExp(`name="${escapedFilename}"[^>]*id="([^"]+)"`, 'i'));
+              
+              const match = nameIdMatch || idNameMatch;
+              if (match && match[1]) {
+                log("debug", `Found file ${filename} with ID: ${match[1]}`);
+                resolve(match[1]);
+              } else {
+                log("debug", `File ${filename} not found in folder ${folderId}`);
+                resolve(null);
+              }
+            } catch (parseError) {
+              log("debug", `Error parsing folder contents: ${parseError.message}`);
+              resolve(null);
+            }
+          } else {
+            log("debug", `Failed to get folder contents: ${res.statusCode}`);
+            resolve(null);
+          }
+        });
+      });
+
+      req.on("error", (error) => {
+        log("debug", `Error getting folder contents: ${error.message}`);
+        resolve(null);
+      });
+
+      req.end();
+    });
+  }
+
+  /**
+   * Escapes special characters for XML.
+   * @param {string} str - String to escape
+   * @returns {string} Escaped string
+   */
+  escapeXml(str) {
+    return str
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&apos;");
+  }
+
+  /**
+   * Searches for a folder in Heretto by name.
+   * @param {Object} options - Search options
+   * @returns {Promise<string|null>} Folder ID if found, null otherwise
+   */
+  async searchFolderByName({ apiBaseUrl, apiToken, username, folderName, log }) {
+    const searchUrl = new URL("/ezdnxtgen/api/search", apiBaseUrl);
+    
+    const searchBody = JSON.stringify({
+      queryString: folderName,
+      searchResultType: "FOLDERS_ONLY",
+    });
+
+    return new Promise((resolve, reject) => {
+      const protocol = searchUrl.protocol === "https:" ? https : http;
+      const authString = Buffer.from(`${username}:${apiToken}`).toString("base64");
+
+      const options = {
+        hostname: searchUrl.hostname,
+        port: searchUrl.port || (searchUrl.protocol === "https:" ? 443 : 80),
+        path: searchUrl.pathname,
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Basic ${authString}`,
+          "Content-Length": Buffer.byteLength(searchBody),
+        },
+      };
+
+      log("debug", `Searching for folder: ${folderName}`);
+
+      const req = protocol.request(options, (res) => {
+        let data = "";
+
+        res.on("data", (chunk) => {
+          data += chunk;
+        });
+
+        res.on("end", () => {
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            try {
+              // Handle empty response body (no results)
+              if (!data || data.trim() === "") {
+                log("debug", "Folder search returned empty response - no results found");
+                resolve(null);
+                return;
+              }
+              
+              const result = JSON.parse(data);
+              // Find the matching folder in results
+              if (result.searchResults && result.searchResults.length > 0) {
+                // Look for exact folder name match
+                const match = result.searchResults.find(
+                  (r) => r.name === folderName || r.title === folderName
+                );
+                if (match) {
+                  log("debug", `Found folder: ${folderName} with ID: ${match.uuid || match.id}`);
+                  resolve(match.uuid || match.id);
+                } else {
+                  // Take first result as fallback
+                  log("debug", `Exact folder match not found, using first result: ${result.searchResults[0].uuid || result.searchResults[0].id}`);
+                  resolve(result.searchResults[0].uuid || result.searchResults[0].id);
+                }
+              } else {
+                log("debug", `No folders found matching: ${folderName}`);
+                resolve(null);
+              }
+            } catch (parseError) {
+              reject(new Error(`Failed to parse folder search response: ${parseError.message}`));
+            }
+          } else {
+            reject(new Error(`Folder search request failed with status ${res.statusCode}: ${data}`));
+          }
+        });
+      });
+
+      req.on("error", (error) => {
+        reject(new Error(`Folder search request error: ${error.message}`));
+      });
+
+      req.write(searchBody);
+      req.end();
+    });
+  }
+
+  /**
    * Searches for a file in Heretto by filename.
    * @param {Object} options - Search options
    * @returns {Promise<string|null>} Document ID if found, null otherwise
@@ -113,7 +555,7 @@ class HerettoUploader {
     
     const searchBody = JSON.stringify({
       queryString: filename,
-      searchResultType: "FILES",
+      searchResultType: "FILES_ONLY",
     });
 
     return new Promise((resolve, reject) => {
@@ -142,6 +584,13 @@ class HerettoUploader {
         res.on("end", () => {
           if (res.statusCode >= 200 && res.statusCode < 300) {
             try {
+              // Handle empty response body (no results)
+              if (!data || data.trim() === "") {
+                log("debug", "Search returned empty response - no results found");
+                resolve(null);
+                return;
+              }
+              
               const result = JSON.parse(data);
               // Find the matching file in results
               if (result.searchResults && result.searchResults.length > 0) {

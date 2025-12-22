@@ -390,6 +390,8 @@ async function saveScreenshot({ config, step, driver }) {
   // Set output path for new screenshots
   if (!result.outputs.screenshotPath) {
     result.outputs.screenshotPath = filePath;
+    // Mark new screenshots as changed so they can be uploaded
+    result.outputs.changed = true;
     // Preserve sourceIntegration metadata
     if (step.screenshot.sourceIntegration) {
       result.outputs.sourceIntegration = step.screenshot.sourceIntegration;
