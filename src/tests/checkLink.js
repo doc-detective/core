@@ -52,9 +52,19 @@ async function checkLink({ config, step }) {
     step.checkLink.statusCodes = [step.checkLink.statusCodes];
   }
 
-  // Perform request
+  // Perform request with appropriate headers
+  const requestConfig = {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.9'
+    },
+    timeout: 10000, // 10 second timeout
+    maxRedirects: 5
+  };
+
   let req = await axios
-    .get(step.checkLink.url)
+    .get(step.checkLink.url, requestConfig)
     .then((res) => {
       return { statusCode: res.status };
     })
@@ -65,7 +75,12 @@ async function checkLink({ config, step }) {
   // If request returned an error
   if (req.error) {
     result.status = "FAIL";
-    result.description = `Invalid or unresolvable URL: ${step.checkLink.url}`;
+    // If we have a response with a status code, include it
+    if (req.error.response && req.error.response.status) {
+      result.description = `Returned ${req.error.response.status}. Expected one of ${JSON.stringify(step.checkLink.statusCodes)}`;
+    } else {
+      result.description = `Invalid or unresolvable URL: ${step.checkLink.url}`;
+    }
     return result;
   }
 

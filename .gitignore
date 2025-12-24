@@ -112,6 +112,7 @@ browser-snapshots
 # Test output artifacts
 test/artifacts/output/
 test/artifacts/static/
+test/artifacts/*.png
 
 # Screenshot artifacts in root
 /*.png
