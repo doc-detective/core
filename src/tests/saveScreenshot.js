@@ -293,6 +293,12 @@ async function saveScreenshot({ config, step, driver }) {
       // Replace old file with new file
       result.description += ` Overwrote existing file.`;
       fs.renameSync(filePath, existFilePath);
+      result.outputs.screenshotPath = existFilePath;
+      result.outputs.changed = true;
+      // Preserve sourceIntegration metadata
+      if (step.screenshot.sourceIntegration) {
+        result.outputs.sourceIntegration = step.screenshot.sourceIntegration;
+      }
       return result;
     }
     let fractionalDiff;
