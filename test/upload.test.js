@@ -430,13 +430,13 @@ describe("Upload module", function () {
     describe("findParentFolderFromDependencies", function () {
       const mockLog = () => {};
 
-      it("returns null when resourceDependencies is null", function () {
+      it("returns empty result when resourceDependencies is null", function () {
         const result = HerettoUploader.findParentFolderFromDependencies({
           resourceDependencies: null,
           filePath: "_media/test.png",
           log: mockLog,
         });
-        assert.equal(result, null);
+        assert.deepEqual(result, { folderId: null, targetFolderName: null, ditamapParentFolderId: null });
       });
 
       it("finds parent folder from sibling file", function () {
@@ -448,7 +448,8 @@ describe("Upload module", function () {
           filePath: "_media/new-image.png",
           log: mockLog,
         });
-        assert.equal(result, "media-folder-uuid");
+        assert.equal(result.folderId, "media-folder-uuid");
+        assert.equal(result.targetFolderName, "_media");
       });
 
       it("finds folder by direct path match", function () {
@@ -460,10 +461,11 @@ describe("Upload module", function () {
           filePath: "_media/new-file.png",
           log: mockLog,
         });
-        assert.equal(result, "direct-folder-uuid");
+        assert.equal(result.folderId, "direct-folder-uuid");
+        assert.equal(result.targetFolderName, "_media");
       });
 
-      it("uses ditamap parent folder as fallback", function () {
+      it("returns ditamap parent folder info when folder not found", function () {
         const resourceDependencies = {
           "_ditamapParentFolderId": "ditamap-parent-folder-uuid",
           "other/path/file.dita": { uuid: "other-uuid", parentFolderId: "other-folder" },
@@ -473,7 +475,10 @@ describe("Upload module", function () {
           filePath: "_nonexistent_folder/new-file.png",
           log: mockLog,
         });
-        assert.equal(result, "ditamap-parent-folder-uuid");
+        // folderId should be null (not found), but ditamapParentFolderId should be set for API lookup
+        assert.equal(result.folderId, null);
+        assert.equal(result.ditamapParentFolderId, "ditamap-parent-folder-uuid");
+        assert.equal(result.targetFolderName, "_nonexistent_folder");
       });
 
       it("prefers sibling file match over ditamap fallback", function () {
@@ -486,10 +491,11 @@ describe("Upload module", function () {
           filePath: "_media/new-file.png",
           log: mockLog,
         });
-        assert.equal(result, "correct-media-folder");
+        assert.equal(result.folderId, "correct-media-folder");
+        assert.equal(result.targetFolderName, "_media");
       });
 
-      it("returns null when no folder found and no ditamap fallback", function () {
+      it("returns null folderId when no folder found and no ditamap fallback", function () {
         const resourceDependencies = {
           "completely/different/path/file.png": { uuid: "some-uuid", parentFolderId: "some-folder" },
         };
@@ -498,7 +504,9 @@ describe("Upload module", function () {
           filePath: "_unknown_folder/file.png",
           log: mockLog,
         });
-        assert.equal(result, null);
+        assert.equal(result.folderId, null);
+        assert.equal(result.ditamapParentFolderId, null);
+        assert.equal(result.targetFolderName, "_unknown_folder");
       });
 
       it("normalizes relative path prefixes", function () {
@@ -510,7 +518,8 @@ describe("Upload module", function () {
           filePath: "../_media/new-file.png",
           log: mockLog,
         });
-        assert.equal(result, "media-folder");
+        assert.equal(result.folderId, "media-folder");
+        assert.equal(result.targetFolderName, "_media");
       });
     });
 
