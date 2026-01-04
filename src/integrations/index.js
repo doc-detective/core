@@ -205,7 +205,7 @@ function getIntegrationConfig(config, sourceIntegration) {
     case "heretto":
       return config?.integrations?.heretto?.find(
         (h) => h.name === sourceIntegration.integrationName
-      );
+      ) ?? null;
     default:
       return null;
   }

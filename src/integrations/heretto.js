@@ -400,6 +400,11 @@ class HerettoUploader {
         });
       });
 
+      // Set a reasonable timeout (30 seconds)
+      req.setTimeout(30000, () => {
+        req.destroy(new Error('Request timeout'));
+      });
+
       req.on("error", (error) => {
         log("debug", `Error getting folder contents: ${error.message}`);
         resolve(null);
@@ -474,6 +479,11 @@ class HerettoUploader {
         reject(new Error(`Create document request error: ${error.message}`));
       });
 
+      // Set a reasonable timeout (30 seconds)
+      req.setTimeout(30000, () => {
+        req.destroy(new Error('Request timeout'));
+      });
+
       req.write(createBody);
       req.end();
     });
@@ -543,6 +553,11 @@ class HerettoUploader {
       req.on("error", (error) => {
         log("debug", `Error getting folder contents: ${error.message}`);
         resolve(null);
+      });
+
+      // Set a reasonable timeout (30 seconds)
+      req.setTimeout(30000, () => {
+        req.destroy(new Error('Request timeout'));
       });
 
       req.end();
@@ -643,6 +658,11 @@ class HerettoUploader {
         reject(new Error(`Folder search request error: ${error.message}`));
       });
 
+      // Set a reasonable timeout (30 seconds)
+      req.setTimeout(30000, () => {
+        req.destroy(new Error('Request timeout'));
+      });
+
       req.write(searchBody);
       req.end();
     });
@@ -723,6 +743,11 @@ class HerettoUploader {
         reject(new Error(`Search request error: ${error.message}`));
       });
 
+      // Set a reasonable timeout (30 seconds)
+      req.setTimeout(30000, () => {
+        req.destroy(new Error('Request timeout'));
+      });
+
       req.write(searchBody);
       req.end();
     });
@@ -773,6 +798,11 @@ class HerettoUploader {
 
       req.on("error", (error) => {
         reject(new Error(`Upload request error: ${error.message}`));
+      });
+
+      // Set a reasonable timeout (30 seconds)
+      req.setTimeout(30000, () => {
+        req.destroy(new Error('Request timeout'));
       });
 
       req.write(content);
@@ -858,6 +888,11 @@ class HerettoUploader {
         reject(new Error(`Get document info request error: ${error.message}`));
       });
 
+      // Set a reasonable timeout (30 seconds)
+      req.setTimeout(30000, () => {
+        req.destroy(new Error('Request timeout'));
+      });
+
       req.end();
     });
   }
@@ -904,6 +939,11 @@ class HerettoUploader {
 
       req.on("error", (error) => {
         reject(new Error(`Get document content request error: ${error.message}`));
+      });
+
+      // Set a reasonable timeout (30 seconds)
+      req.setTimeout(30000, () => {
+        req.destroy(new Error('Request timeout'));
       });
 
       req.end();

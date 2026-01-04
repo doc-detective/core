@@ -30,7 +30,7 @@ after(async () => {
 });
 
 describe("Screenshot sourceIntegration preservation", function () {
-  this.timeout(0);
+  this.timeout(60000); // 60 seconds
 
   const tempDir = path.resolve("./test/temp-screenshot-tests");
   

@@ -268,7 +268,7 @@ describe("Upload module", function () {
       const sourceIntegration = { type: "heretto", integrationName: "example" };
 
       const result = getIntegrationConfig(config, sourceIntegration);
-      assert.equal(result, undefined);
+      assert.equal(result, null);
     });
 
     it("returns null for unknown integration type", function () {
