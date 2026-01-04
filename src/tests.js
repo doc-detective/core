@@ -800,7 +800,9 @@ async function runSpecs({ resolvedTests }) {
 
   // Upload changed files back to source integrations (best-effort)
   // This automatically syncs any changed screenshots back to their source CMS
-  if (config?.integrations?.heretto?.length > 0) {
+  // Only upload if uploadOnChange is enabled (defaults to true for backward compatibility)
+  const uploadOnChange = config?.uploadOnChange ?? true;
+  if (uploadOnChange && config?.integrations?.heretto?.length > 0) {
     try {
       const uploadResults = await uploadChangedFiles({ config, report, log });
       report.uploadResults = uploadResults;

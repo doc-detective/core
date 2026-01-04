@@ -230,13 +230,17 @@ class HerettoUploader {
   /**
    * Resolves a file path to its UUID using the resource dependencies map.
    * @param {Object} options - Resolution options
-   * @returns {Object|null} File info with uuid and parentFolderId, or null if not found
+   * @param {Object.<string, {uuid: string, parentFolderId: string}>} options.resourceDependencies - Map of resource paths to resource metadata
+   * @param {string} options.filePath - Original file path to resolve
+   * @param {string} options.filename - Filename extracted from the file path
+   * @param {Function} options.log - Logging function
+   * @returns {{uuid: string, parentFolderId: string}|null} File info with uuid and parentFolderId, or null if not found
    */
   resolveFromDependencies({ resourceDependencies, filePath, filename, log }) {
     if (!resourceDependencies) return null;
     
-    // Normalize the file path for comparison
-    const normalizedPath = filePath.replace(/\\/g, "/").replace(/^\.\//, "").replace(/^\.\.\//, "");
+    // Normalize the file path for comparison using posix normalize for cross-platform support
+    const normalizedPath = path.posix.normalize(filePath.replace(/\\/g, "/"));
     
     // Try exact path match first
     for (const [depPath, info] of Object.entries(resourceDependencies)) {
@@ -290,7 +294,10 @@ class HerettoUploader {
    * Finds the parent folder ID for a file path using resource dependencies.
    * Returns the target folder name for API lookup if not found in dependencies.
    * @param {Object} options - Resolution options
-   * @returns {Object} { folderId, targetFolderName, ditamapParentFolderId }
+   * @param {Object.<string, {uuid: string, parentFolderId: string}>} options.resourceDependencies - Map of resource paths to resource metadata
+   * @param {string} options.filePath - File path to find parent folder for
+   * @param {Function} options.log - Logging function
+   * @returns {{folderId: string|null, targetFolderName: string|null, ditamapParentFolderId: string|null}} Resolution result with folder info
    */
   findParentFolderFromDependencies({ resourceDependencies, filePath, log }) {
     const result = {
@@ -301,8 +308,10 @@ class HerettoUploader {
     
     if (!resourceDependencies) return result;
     
-    // Normalize path and get parent directory
-    const normalizedPath = filePath.replace(/\\/g, "/").replace(/^\.\//, "").replace(/^\.\.\//, "");
+    // Normalize path and get parent directory using posix normalize for cross-platform support
+    const normalizedPath = path.posix
+      .normalize(filePath.replace(/\\/g, "/"))
+      .replace(/^(\.\/)|(\.\.\/)*/g, "");
     const parentDir = path.dirname(normalizedPath);
     const targetFolderName = path.basename(parentDir);
     

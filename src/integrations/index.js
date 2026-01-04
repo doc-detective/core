@@ -34,7 +34,12 @@ function getUploader(sourceIntegration) {
 /**
  * Collects all changed files from a test report that have source integrations.
  * @param {Object} report - Test execution report
- * @returns {Array<Object>} Array of { localPath, sourceIntegration } objects
+ * @returns {Array<Object>} Array of objects with properties:
+ *   - localPath: string - Path to the local file
+ *   - sourceIntegration: Object - Source integration metadata
+ *   - stepId: string - ID of the step that produced this file
+ *   - testId: string - ID of the test containing this step
+ *   - specId: string - ID of the spec containing this test
  */
 function collectChangedFiles(report) {
   const changedFiles = [];
@@ -74,7 +79,18 @@ function collectChangedFiles(report) {
  * @param {Object} options.config - Doc Detective config
  * @param {Object} options.report - Test execution report
  * @param {Function} options.log - Logging function
- * @returns {Promise<Object>} Upload results summary
+ * @returns {Promise<{
+ *   total: number,
+ *   successful: number,
+ *   failed: number,
+ *   skipped: number,
+ *   details: Array<{
+ *     localPath: string,
+ *     status: string,
+ *     description?: string,
+ *     reason?: string
+ *   }>
+ * }>} Upload results summary
  */
 async function uploadChangedFiles({ config, report, log }) {
   const results = {
@@ -94,6 +110,9 @@ async function uploadChangedFiles({ config, report, log }) {
   }
   
   log(config, "info", `Found ${changedFiles.length} changed file(s) to upload.`);
+  
+  // Prepare upload tasks, filtering out files without valid uploaders or configs
+  const uploadTasks = [];
   
   for (const file of changedFiles) {
     const uploader = getUploader(file.sourceIntegration);
@@ -134,24 +153,67 @@ async function uploadChangedFiles({ config, report, log }) {
       continue;
     }
     
-    try {
+    // Queue this file for parallel upload
+    uploadTasks.push({
+      file,
+      uploader,
+      integrationConfig,
+    });
+  }
+  
+  // Execute all uploads in parallel using Promise.allSettled
+  if (uploadTasks.length > 0) {
+    log(config, "debug", `Executing ${uploadTasks.length} upload(s) in parallel...`);
+    
+    const uploadPromises = uploadTasks.map(async ({ file, uploader, integrationConfig }) => {
       log(
         config,
         "info",
         `Uploading ${file.localPath} to ${file.sourceIntegration.type}...`
       );
       
-      const uploadResult = await uploader.upload({
-        config,
-        integrationConfig,
-        localFilePath: file.localPath,
-        sourceIntegration: file.sourceIntegration,
-        log,
-      });
+      try {
+        const uploadResult = await uploader.upload({
+          config,
+          integrationConfig,
+          localFilePath: file.localPath,
+          sourceIntegration: file.sourceIntegration,
+          log,
+        });
+        
+        return { file, uploadResult, error: null };
+      } catch (error) {
+        // Catch errors within the promise to preserve file reference
+        return { file, uploadResult: null, error };
+      }
+    });
+    
+    const settledResults = await Promise.allSettled(uploadPromises);
+    
+    for (const settled of settledResults) {
+      // All promises should be fulfilled since we catch errors internally
+      const { file, uploadResult, error } = settled.value;
       
-      if (uploadResult.status === "PASS") {
+      if (error) {
+        results.failed++;
+        log(
+          config,
+          "warning",
+          `Error uploading ${file.localPath}: ${error.message}`
+        );
+        results.details.push({
+          localPath: file.localPath,
+          status: "FAIL",
+          description: error.message,
+        });
+      } else if (uploadResult.status === "PASS") {
         results.successful++;
         log(config, "info", `Successfully uploaded: ${file.localPath}`);
+        results.details.push({
+          localPath: file.localPath,
+          status: uploadResult.status,
+          description: uploadResult.description,
+        });
       } else {
         results.failed++;
         log(
@@ -159,25 +221,12 @@ async function uploadChangedFiles({ config, report, log }) {
           "warning",
           `Failed to upload ${file.localPath}: ${uploadResult.description}`
         );
+        results.details.push({
+          localPath: file.localPath,
+          status: uploadResult.status,
+          description: uploadResult.description,
+        });
       }
-      
-      results.details.push({
-        localPath: file.localPath,
-        status: uploadResult.status,
-        description: uploadResult.description,
-      });
-    } catch (error) {
-      results.failed++;
-      log(
-        config,
-        "warning",
-        `Error uploading ${file.localPath}: ${error.message}`
-      );
-      results.details.push({
-        localPath: file.localPath,
-        status: "FAIL",
-        description: error.message,
-      });
     }
   }
   

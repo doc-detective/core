@@ -6,7 +6,7 @@ const { createServer } = require("./server");
 
 // Create a server for screenshot tests
 const server = createServer({
-  port: 8093,
+  port: 8092,
   staticDir: "./test/server/public",
 });
 
@@ -53,13 +53,14 @@ describe("Screenshot sourceIntegration preservation", function () {
 
   it("preserves sourceIntegration for new screenshots", async function () {
     const screenshotPath = path.join(tempDir, "new-screenshot.png");
+    const tempFilePath = path.join(tempDir, "test-spec.json");
     
     const testSpec = {
       tests: [
         {
           steps: [
             {
-              goTo: "http://localhost:8093",
+              goTo: "http://localhost:8092",
             },
             {
               screenshot: {
@@ -77,27 +78,34 @@ describe("Screenshot sourceIntegration preservation", function () {
       ],
     };
 
-    const tempFilePath = path.join(tempDir, "test-spec.json");
-    fs.writeFileSync(tempFilePath, JSON.stringify(testSpec, null, 2));
+    try {
+      fs.writeFileSync(tempFilePath, JSON.stringify(testSpec, null, 2));
 
-    const result = await runTests({ input: tempFilePath, logLevel: "silent" });
+      const result = await runTests({ input: tempFilePath, logLevel: "silent" });
 
-    // Find the screenshot step
-    const screenshotStep = result.specs[0].tests[0].contexts[0].steps[1];
+      // Find the screenshot step
+      const screenshotStep = result.specs[0].tests[0].contexts[0].steps[1];
 
-    // Verify sourceIntegration is preserved
-    assert.ok(screenshotStep.outputs.sourceIntegration, "sourceIntegration should be present");
-    assert.equal(screenshotStep.outputs.sourceIntegration.type, "heretto");
-    assert.equal(screenshotStep.outputs.sourceIntegration.integrationName, "test-integration");
-    assert.equal(screenshotStep.outputs.sourceIntegration.filePath, "new-screenshot.png");
-    assert.equal(screenshotStep.outputs.sourceIntegration.contentPath, "/content/topic.dita");
-    
-    // Verify changed is true for new screenshots
-    assert.equal(screenshotStep.outputs.changed, true, "changed should be true for new screenshots");
+      // Verify sourceIntegration is preserved
+      assert.ok(screenshotStep.outputs.sourceIntegration, "sourceIntegration should be present");
+      assert.equal(screenshotStep.outputs.sourceIntegration.type, "heretto");
+      assert.equal(screenshotStep.outputs.sourceIntegration.integrationName, "test-integration");
+      assert.equal(screenshotStep.outputs.sourceIntegration.filePath, "new-screenshot.png");
+      assert.equal(screenshotStep.outputs.sourceIntegration.contentPath, "/content/topic.dita");
+      
+      // Verify changed is true for new screenshots
+      assert.equal(screenshotStep.outputs.changed, true, "changed should be true for new screenshots");
+    } finally {
+      // Cleanup temp files
+      if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
+      if (fs.existsSync(screenshotPath)) fs.unlinkSync(screenshotPath);
+    }
   });
 
   it("preserves sourceIntegration when variation exceeds threshold", async function () {
     const screenshotPath = path.join(tempDir, "variation-screenshot.png");
+    const initialFilePath = path.join(tempDir, "initial-spec.json");
+    const variationFilePath = path.join(tempDir, "variation-spec.json");
     
     // First, create an initial screenshot
     const initialSpec = {
@@ -105,7 +113,7 @@ describe("Screenshot sourceIntegration preservation", function () {
         {
           steps: [
             {
-              goTo: "http://localhost:8093",
+              goTo: "http://localhost:8092",
             },
             {
               screenshot: {
@@ -119,17 +127,13 @@ describe("Screenshot sourceIntegration preservation", function () {
       ],
     };
 
-    const initialFilePath = path.join(tempDir, "initial-spec.json");
-    fs.writeFileSync(initialFilePath, JSON.stringify(initialSpec, null, 2));
-    await runTests({ input: initialFilePath, logLevel: "silent" });
-
-    // Now run with a different page to trigger variation warning
+    // Variation spec to trigger warning
     const variationSpec = {
       tests: [
         {
           steps: [
             {
-              goTo: "http://localhost:8093/drag-drop-test.html", // Different page
+              goTo: "http://localhost:8092/drag-drop-test.html", // Different page
             },
             {
               screenshot: {
@@ -149,27 +153,39 @@ describe("Screenshot sourceIntegration preservation", function () {
       ],
     };
 
-    const variationFilePath = path.join(tempDir, "variation-spec.json");
-    fs.writeFileSync(variationFilePath, JSON.stringify(variationSpec, null, 2));
+    try {
+      fs.writeFileSync(initialFilePath, JSON.stringify(initialSpec, null, 2));
+      await runTests({ input: initialFilePath, logLevel: "silent" });
 
-    const result = await runTests({ input: variationFilePath, logLevel: "silent" });
+      // Now run with a different page to trigger variation warning
+      fs.writeFileSync(variationFilePath, JSON.stringify(variationSpec, null, 2));
 
-    const screenshotStep = result.specs[0].tests[0].contexts[0].steps[1];
+      const result = await runTests({ input: variationFilePath, logLevel: "silent" });
 
-    // Verify the step is a WARNING (variation exceeded)
-    assert.equal(screenshotStep.result, "WARNING");
-    
-    // Verify sourceIntegration is preserved
-    assert.ok(screenshotStep.outputs.sourceIntegration, "sourceIntegration should be present");
-    assert.equal(screenshotStep.outputs.sourceIntegration.type, "heretto");
-    assert.equal(screenshotStep.outputs.sourceIntegration.integrationName, "variation-test");
-    
-    // Verify changed is true
-    assert.equal(screenshotStep.outputs.changed, true, "changed should be true when variation exceeds threshold");
+      const screenshotStep = result.specs[0].tests[0].contexts[0].steps[1];
+
+      // Verify the step is a WARNING (variation exceeded)
+      assert.equal(screenshotStep.result, "WARNING");
+      
+      // Verify sourceIntegration is preserved
+      assert.ok(screenshotStep.outputs.sourceIntegration, "sourceIntegration should be present");
+      assert.equal(screenshotStep.outputs.sourceIntegration.type, "heretto");
+      assert.equal(screenshotStep.outputs.sourceIntegration.integrationName, "variation-test");
+      
+      // Verify changed is true
+      assert.equal(screenshotStep.outputs.changed, true, "changed should be true when variation exceeds threshold");
+    } finally {
+      // Cleanup temp files
+      if (fs.existsSync(initialFilePath)) fs.unlinkSync(initialFilePath);
+      if (fs.existsSync(variationFilePath)) fs.unlinkSync(variationFilePath);
+      if (fs.existsSync(screenshotPath)) fs.unlinkSync(screenshotPath);
+    }
   });
 
   it("preserves sourceIntegration when screenshot is within variation", async function () {
     const screenshotPath = path.join(tempDir, "same-screenshot.png");
+    const initialFilePath = path.join(tempDir, "initial-spec.json");
+    const sameFilePath = path.join(tempDir, "same-spec.json");
     
     // First, create an initial screenshot
     const initialSpec = {
@@ -177,7 +193,7 @@ describe("Screenshot sourceIntegration preservation", function () {
         {
           steps: [
             {
-              goTo: "http://localhost:8093",
+              goTo: "http://localhost:8092",
             },
             {
               screenshot: {
@@ -191,17 +207,13 @@ describe("Screenshot sourceIntegration preservation", function () {
       ],
     };
 
-    const initialFilePath = path.join(tempDir, "initial-spec.json");
-    fs.writeFileSync(initialFilePath, JSON.stringify(initialSpec, null, 2));
-    await runTests({ input: initialFilePath, logLevel: "silent" });
-
-    // Now run with the same page (should be within variation)
+    // Same page spec to test within variation
     const samePageSpec = {
       tests: [
         {
           steps: [
             {
-              goTo: "http://localhost:8093", // Same page
+              goTo: "http://localhost:8092", // Same page
             },
             {
               screenshot: {
@@ -221,34 +233,45 @@ describe("Screenshot sourceIntegration preservation", function () {
       ],
     };
 
-    const sameFilePath = path.join(tempDir, "same-spec.json");
-    fs.writeFileSync(sameFilePath, JSON.stringify(samePageSpec, null, 2));
+    try {
+      fs.writeFileSync(initialFilePath, JSON.stringify(initialSpec, null, 2));
+      await runTests({ input: initialFilePath, logLevel: "silent" });
 
-    const result = await runTests({ input: sameFilePath, logLevel: "silent" });
+      // Now run with the same page (should be within variation)
+      fs.writeFileSync(sameFilePath, JSON.stringify(samePageSpec, null, 2));
 
-    const screenshotStep = result.specs[0].tests[0].contexts[0].steps[1];
+      const result = await runTests({ input: sameFilePath, logLevel: "silent" });
 
-    // Verify the step passed (within variation)
-    assert.equal(screenshotStep.result, "PASS");
-    
-    // Verify sourceIntegration is preserved
-    assert.ok(screenshotStep.outputs.sourceIntegration, "sourceIntegration should be present");
-    assert.equal(screenshotStep.outputs.sourceIntegration.type, "heretto");
-    assert.equal(screenshotStep.outputs.sourceIntegration.integrationName, "same-page-test");
-    
-    // Verify changed is false (within variation, no update)
-    assert.equal(screenshotStep.outputs.changed, false, "changed should be false when within variation");
+      const screenshotStep = result.specs[0].tests[0].contexts[0].steps[1];
+
+      // Verify the step passed (within variation)
+      assert.equal(screenshotStep.result, "PASS");
+      
+      // Verify sourceIntegration is preserved
+      assert.ok(screenshotStep.outputs.sourceIntegration, "sourceIntegration should be present");
+      assert.equal(screenshotStep.outputs.sourceIntegration.type, "heretto");
+      assert.equal(screenshotStep.outputs.sourceIntegration.integrationName, "same-page-test");
+      
+      // Verify changed is false (within variation, no update)
+      assert.equal(screenshotStep.outputs.changed, false, "changed should be false when within variation");
+    } finally {
+      // Cleanup temp files
+      if (fs.existsSync(initialFilePath)) fs.unlinkSync(initialFilePath);
+      if (fs.existsSync(sameFilePath)) fs.unlinkSync(sameFilePath);
+      if (fs.existsSync(screenshotPath)) fs.unlinkSync(screenshotPath);
+    }
   });
 
   it("does not set sourceIntegration when not provided", async function () {
     const screenshotPath = path.join(tempDir, "no-integration-screenshot.png");
+    const tempFilePath = path.join(tempDir, "test-spec.json");
     
     const testSpec = {
       tests: [
         {
           steps: [
             {
-              goTo: "http://localhost:8093",
+              goTo: "http://localhost:8092",
             },
             {
               screenshot: {
@@ -260,14 +283,19 @@ describe("Screenshot sourceIntegration preservation", function () {
       ],
     };
 
-    const tempFilePath = path.join(tempDir, "test-spec.json");
-    fs.writeFileSync(tempFilePath, JSON.stringify(testSpec, null, 2));
+    try {
+      fs.writeFileSync(tempFilePath, JSON.stringify(testSpec, null, 2));
 
-    const result = await runTests({ input: tempFilePath, logLevel: "silent" });
+      const result = await runTests({ input: tempFilePath, logLevel: "silent" });
 
-    const screenshotStep = result.specs[0].tests[0].contexts[0].steps[1];
+      const screenshotStep = result.specs[0].tests[0].contexts[0].steps[1];
 
-    // Verify sourceIntegration is NOT set
-    assert.equal(screenshotStep.outputs.sourceIntegration, undefined, "sourceIntegration should not be set when not provided");
+      // Verify sourceIntegration is NOT set
+      assert.equal(screenshotStep.outputs.sourceIntegration, undefined, "sourceIntegration should not be set when not provided");
+    } finally {
+      // Cleanup temp files
+      if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
+      if (fs.existsSync(screenshotPath)) fs.unlinkSync(screenshotPath);
+    }
   });
 });

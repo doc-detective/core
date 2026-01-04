@@ -8,7 +8,6 @@ require("dotenv").config({ path: path.join(__dirname, ".env") });
 async function main() {
   const json = {
     input: ["heretto:example"],
-    // input: ["c:\\Users\\hawkeyexl\\AppData\\Local\\Temp\\doc-detective\\heretto_c96e625d5c1ee50972362046445a5ca4\\ot-output\\dita\\_topics\\espresso.dita"],
     logLevel: "debug",
     runOn: [
       {
