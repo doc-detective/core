@@ -34,12 +34,12 @@ function getUploader(sourceIntegration) {
 /**
  * Collects all changed files from a test report that have source integrations.
  * @param {Object} report - Test execution report
- * @returns {Array<Object>} Array of objects with properties:
- *   - localPath: string - Path to the local file
- *   - sourceIntegration: Object - Source integration metadata
- *   - stepId: string - ID of the step that produced this file
- *   - testId: string - ID of the test containing this step
- *   - specId: string - ID of the spec containing this test
+ * @returns {Array<{localPath: string, sourceIntegration: Object, stepId: string, testId: string, specId: string}>} Array of changed file objects containing:
+ *   - localPath: Path to the local file
+ *   - sourceIntegration: Source integration metadata (type, integrationName, filePath, contentPath)
+ *   - stepId: ID of the step that produced this file
+ *   - testId: ID of the test containing this step
+ *   - specId: ID of the spec containing this test
  */
 function collectChangedFiles(report) {
   const changedFiles = [];
@@ -75,22 +75,17 @@ function collectChangedFiles(report) {
 /**
  * Uploads all changed files back to their source integrations.
  * Uses best-effort approach - continues uploading even if individual uploads fail.
+ * Uploads are executed in parallel using Promise.allSettled for better performance.
  * @param {Object} options - Upload options
- * @param {Object} options.config - Doc Detective config
- * @param {Object} options.report - Test execution report
- * @param {Function} options.log - Logging function
- * @returns {Promise<{
- *   total: number,
- *   successful: number,
- *   failed: number,
- *   skipped: number,
- *   details: Array<{
- *     localPath: string,
- *     status: string,
- *     description?: string,
- *     reason?: string
- *   }>
- * }>} Upload results summary
+ * @param {Object} options.config - Doc Detective config containing integration configurations
+ * @param {Object} options.report - Test execution report from runSpecs
+ * @param {Function} options.log - Logging function with signature (config, level, message)
+ * @returns {Promise<{total: number, successful: number, failed: number, skipped: number, details: Array<{localPath: string, status: string, description?: string, reason?: string}>}>} Upload results summary with:
+ *   - total: Total number of changed files found
+ *   - successful: Number of files successfully uploaded
+ *   - failed: Number of files that failed to upload
+ *   - skipped: Number of files skipped (no uploader or config found)
+ *   - details: Array of per-file results with localPath, status (PASS/FAIL/SKIPPED), and description or reason
  */
 async function uploadChangedFiles({ config, report, log }) {
   const results = {

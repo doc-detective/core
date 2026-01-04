@@ -240,7 +240,11 @@ class HerettoUploader {
     if (!resourceDependencies) return null;
     
     // Normalize the file path for comparison using posix normalize for cross-platform support
-    const normalizedPath = path.posix.normalize(filePath.replace(/\\/g, "/"));
+    // Use normalize to handle multiple levels of relative references like ../../folder/file.png
+    const normalizedPath = path.posix
+      .normalize(filePath.replace(/\\/g, "/"))
+      .replace(/^\.\.\/+/g, "") // Remove leading ../
+      .replace(/^\.\//, ""); // Remove leading ./
     
     // Try exact path match first
     for (const [depPath, info] of Object.entries(resourceDependencies)) {
@@ -294,10 +298,15 @@ class HerettoUploader {
    * Finds the parent folder ID for a file path using resource dependencies.
    * Returns the target folder name for API lookup if not found in dependencies.
    * @param {Object} options - Resolution options
-   * @param {Object.<string, {uuid: string, parentFolderId: string}>} options.resourceDependencies - Map of resource paths to resource metadata
-   * @param {string} options.filePath - File path to find parent folder for
-   * @param {Function} options.log - Logging function
-   * @returns {{folderId: string|null, targetFolderName: string|null, ditamapParentFolderId: string|null}} Resolution result with folder info
+   * @param {Object.<string, {uuid: string, parentFolderId: string}>} options.resourceDependencies - Map of resource paths to resource metadata.
+   *   Keys are relative file paths, values are objects with uuid and parentFolderId.
+   *   Special keys starting with '_' (e.g., '_ditamapParentFolderId') store internal metadata.
+   * @param {string} options.filePath - File path to find parent folder for (can be relative with ../ or ./ prefixes)
+   * @param {Function} options.log - Logging function with signature (level, message)
+   * @returns {{folderId: string|null, targetFolderName: string|null, ditamapParentFolderId: string|null}} Resolution result containing:
+   *   - folderId: The parent folder UUID if found in dependencies, null otherwise
+   *   - targetFolderName: The name of the target folder extracted from the file path
+   *   - ditamapParentFolderId: The ditamap's parent folder ID from dependencies (for API fallback lookup)
    */
   findParentFolderFromDependencies({ resourceDependencies, filePath, log }) {
     const result = {
@@ -309,9 +318,11 @@ class HerettoUploader {
     if (!resourceDependencies) return result;
     
     // Normalize path and get parent directory using posix normalize for cross-platform support
+    // Use a loop/regex pattern to handle multiple levels of relative references like ../../folder/file.png
     const normalizedPath = path.posix
       .normalize(filePath.replace(/\\/g, "/"))
-      .replace(/^(\.\/)|(\.\.\/)*/g, "");
+      .replace(/^(\.\.\/)+/g, "") // Remove all leading ../
+      .replace(/^\.\//, ""); // Remove leading ./
     const parentDir = path.dirname(normalizedPath);
     const targetFolderName = path.basename(parentDir);
     
@@ -388,7 +399,8 @@ class HerettoUploader {
             try {
               // Parse XML to find the folder by name in children
               // Looking for: <folder name="folderName" id="uuid"/>
-              const escapedFolderName = folderName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+              // Double-escape backslashes for proper regex character class matching
+              const escapedFolderName = folderName.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
               const folderMatch = data.match(new RegExp(`<folder\\s+name="${escapedFolderName}"\\s+id="([^"]+)"`, 'i'));
               
               if (folderMatch && folderMatch[1]) {
@@ -536,7 +548,8 @@ class HerettoUploader {
               // Parse XML to find the file by name
               // Looking for child resources with matching name
               // Example: <resource id="uuid" name="filename">...
-              const escapedFilename = filename.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+              // Double-escape backslashes for proper regex character class matching
+              const escapedFilename = filename.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
               const nameIdMatch = data.match(new RegExp(`id="([^"]+)"[^>]*name="${escapedFilename}"`, 'i'));
               const idNameMatch = data.match(new RegExp(`name="${escapedFilename}"[^>]*id="([^"]+)"`, 'i'));
               

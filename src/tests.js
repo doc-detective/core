@@ -801,8 +801,13 @@ async function runSpecs({ resolvedTests }) {
   // Upload changed files back to source integrations (best-effort)
   // This automatically syncs any changed screenshots back to their source CMS
   // Only upload if uploadOnChange is enabled (defaults to true for backward compatibility)
-  const uploadOnChange = config?.uploadOnChange ?? true;
-  if (uploadOnChange && config?.integrations?.heretto?.length > 0) {
+  // Check both global config.uploadOnChange and per-integration uploadOnChange settings
+  const herettoConfigs = config?.integrations?.heretto || [];
+  const hasUploadEnabledIntegration = herettoConfigs.some(
+    (h) => h.uploadOnChange !== false // Default to true if not explicitly set to false
+  );
+  const globalUploadOnChange = config?.uploadOnChange ?? true;
+  if (globalUploadOnChange && hasUploadEnabledIntegration && herettoConfigs.length > 0) {
     try {
       const uploadResults = await uploadChangedFiles({ config, report, log });
       report.uploadResults = uploadResults;
