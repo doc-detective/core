@@ -30,6 +30,7 @@ async function main() {
           organizationId: process.env.HERETTO_ORG_ID, // Organization ID is the subdomain of your Heretto instance (e.g., "silva" for "silva.heretto.com")
           username: process.env.HERETTO_USERNAME, // Your Heretto username/email
           apiToken: process.env.HERETTO_TOKEN, // Your Heretto API token (https://help.heretto.com/en/heretto-ccms/api/ccms-api-authentication/basic-authentication)
+          uploadOnChange: true, // Upload changed screenshots back to Heretto
         },
       ],
     },
