@@ -51,9 +51,15 @@
       "steps": [
         {
           "runShell": {
-            "command": "sleep",
-            "args": ["10"],
-            "scope": "no-wait-scope"
+            "command": "sh",
+            "args": ["-c", "echo 'BG_READY' && sleep 10"],
+            "scope": "background-scope",
+            "timeout": 3000,
+            "waitUntil": {
+              "stdio": {
+                "stdout": "BG_READY"
+              }
+            }
           }
         },
         {
@@ -61,7 +67,7 @@
         },
         {
           "terminateScope": {
-            "scope": "no-wait-scope"
+            "scope": "background-scope"
           }
         }
       ]
@@ -106,6 +112,21 @@
           "terminateScope": {
             "scope": "multi-scope-b"
           }
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "runShell": {
+            "command": "sh",
+            "args": ["-c", "echo 'Short-lived scoped command' && exit 0"],
+            "scope": "foreground-scope",
+            "timeout": 5000
+          }
+        },
+        {
+          "runShell": "echo 'After foreground command completed'"
         }
       ]
     }

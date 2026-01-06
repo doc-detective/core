@@ -7,7 +7,9 @@ require("dotenv").config({ path: path.join(__dirname, ".env") });
  */
 async function main() {
   const json = {
-    input: ["heretto:example"],
+    input: [
+      "dev/dev.spec.json",
+    ],
     logLevel: "debug",
     runOn: [
       {
@@ -24,15 +26,15 @@ async function main() {
       docDetectiveApi: {
         apiKey: process.env.KEY,
       },
-      heretto: [
-        {
-          name: "example",
-          organizationId: process.env.HERETTO_ORG_ID, // Organization ID is the subdomain of your Heretto instance (e.g., "silva" for "silva.heretto.com")
-          username: process.env.HERETTO_USERNAME, // Your Heretto username/email
-          apiToken: process.env.HERETTO_TOKEN, // Your Heretto API token (https://help.heretto.com/en/heretto-ccms/api/ccms-api-authentication/basic-authentication)
-          uploadOnChange: true, // Upload changed screenshots back to Heretto
-        },
-      ],
+      // heretto: [
+      //   {
+      //     name: "example",
+      //     organizationId: process.env.HERETTO_ORG_ID, // Organization ID is the subdomain of your Heretto instance (e.g., "silva" for "silva.heretto.com")
+      //     username: process.env.HERETTO_USERNAME, // Your Heretto username/email
+      //     apiToken: process.env.HERETTO_TOKEN, // Your Heretto API token (https://help.heretto.com/en/heretto-ccms/api/ccms-api-authentication/basic-authentication)
+      //     uploadOnChange: true, // Upload changed screenshots back to Heretto
+      //   },
+      // ],
     },
   };
   // console.log(json);

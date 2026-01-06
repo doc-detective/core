@@ -1,5 +1,6 @@
 const { validate } = require("doc-detective-common");
 const { Key } = require("webdriverio");
+const { log } = require("../utils");
 const {
   findElementByCriteria,
 } = require("./findStrategies");
@@ -66,8 +67,43 @@ const specialKeyMap = {
   $ZANKAKU_HANDKAKU$: Key.ZenkakuHankaku,
 };
 
-// Type a sequence of keys in the active element.
-async function typeKeys({ config, step, driver }) {
+// Map special keys to terminal escape sequences
+const terminalSpecialKeyMap = {
+  $ENTER$: "\n",
+  $RETURN$: "\r",
+  $TAB$: "\t",
+  $ESCAPE$: "\x1b",
+  $BACKSPACE$: "\x7f",
+  $SPACE$: " ",
+  $DELETE$: "\x1b[3~",
+  $ARROW_UP$: "\x1b[A",
+  $ARROW_DOWN$: "\x1b[B",
+  $ARROW_RIGHT$: "\x1b[C",
+  $ARROW_LEFT$: "\x1b[D",
+  $HOME$: "\x1b[H",
+  $END$: "\x1b[F",
+  $PAGE_UP$: "\x1b[5~",
+  $PAGE_DOWN$: "\x1b[6~",
+  $INSERT$: "\x1b[2~",
+  $F1$: "\x1bOP",
+  $F2$: "\x1bOQ",
+  $F3$: "\x1bOR",
+  $F4$: "\x1bOS",
+  $F5$: "\x1b[15~",
+  $F6$: "\x1b[17~",
+  $F7$: "\x1b[18~",
+  $F8$: "\x1b[19~",
+  $F9$: "\x1b[20~",
+  $F10$: "\x1b[21~",
+  $F11$: "\x1b[23~",
+  $F12$: "\x1b[24~",
+  $CTRL_C$: "\x03",
+  $CTRL_D$: "\x04",
+  $CTRL_Z$: "\x1a",
+};
+
+// Type a sequence of keys in the active element or a named scope.
+async function typeKeys({ config, step, driver, scopeRegistry }) {
   let result = { status: "PASS", description: "Typed keys." };
 
   // Validate step payload
@@ -106,6 +142,90 @@ async function typeKeys({ config, step, driver }) {
     return result;
   }
 
+  // Check if this is a scope-targeted type action
+  const scopeName = step.type.scope;
+  
+  if (scopeName) {
+    // Type to a named scope
+    return await typeToScope({ config, step, scopeRegistry, result });
+  }
+
+  // Browser-based typing
+  return await typeToBrowser({ config, step, driver, result });
+}
+
+/**
+ * Type keys to a named scope (terminal)
+ */
+async function typeToScope({ config, step, scopeRegistry, result }) {
+  const scopeName = step.type.scope;
+  
+  log(config, "debug", `Typing keys to scope: ${scopeName}`);
+  
+  // Check if scope registry is available
+  if (!scopeRegistry) {
+    result.status = "FAIL";
+    result.description = "Scope registry not available. Typing to scopes requires scope support.";
+    return result;
+  }
+  
+  // Check if scope exists
+  if (!scopeRegistry.has(scopeName)) {
+    result.status = "FAIL";
+    result.description = `Scope '${scopeName}' does not exist.`;
+    return result;
+  }
+  
+  const scope = scopeRegistry.get(scopeName);
+  
+  if (!scope.process || typeof scope.process.write !== "function") {
+    result.status = "FAIL";
+    result.description = `Scope '${scopeName}' does not support writing (no write method).`;
+    return result;
+  }
+  
+  try {
+    // Convert keys to terminal input
+    const terminalInput = convertKeysToTerminalInput(step.type.keys);
+    
+    // Write to the scope's process
+    scope.process.write(terminalInput);
+    
+    log(config, "debug", `Wrote ${terminalInput.length} characters to scope '${scopeName}'`);
+    
+    result.description = `Typed keys to scope '${scopeName}'.`;
+    return result;
+  } catch (error) {
+    result.status = "FAIL";
+    result.description = `Failed to type to scope '${scopeName}': ${error.message}`;
+    return result;
+  }
+}
+
+/**
+ * Convert key array to terminal input string
+ */
+function convertKeysToTerminalInput(keys) {
+  let output = "";
+  
+  for (const key of keys) {
+    if (key.startsWith("$") && key.endsWith("$") && terminalSpecialKeyMap[key]) {
+      output += terminalSpecialKeyMap[key];
+    } else if (key.startsWith("$") && key.endsWith("$")) {
+      // Unknown special key - skip it
+      continue;
+    } else {
+      output += key;
+    }
+  }
+  
+  return output;
+}
+
+/**
+ * Type keys to browser element
+ */
+async function typeToBrowser({ config, step, driver, result }) {
   // Find element to type into if any criteria are specified
   let element = null;
   const hasElementCriteria = step.type.selector || step.type.elementText || 
@@ -193,3 +313,5 @@ async function typeKeys({ config, step, driver }) {
   // PASS
   return result;
 }
+
+module.exports = { typeKeys };
