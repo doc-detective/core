@@ -193,6 +193,12 @@ async function typeToScope({ config, step, scopeRegistry, result }) {
     
     log(config, "debug", `Wrote ${terminalInput.length} characters to scope '${scopeName}'`);
     
+    // Wait for PTY output to settle (no new data for settleTime ms)
+    // This ensures the terminal has finished processing and echoing the input
+    const settleTime = 50; // ms to wait for output to stabilize
+    const maxWaitTime = 5000; // max total wait time
+    await waitForOutputSettle(scopeRegistry, scopeName, settleTime, maxWaitTime);
+    
     result.description = `Typed keys to scope '${scopeName}'.`;
     return result;
   } catch (error) {
@@ -203,23 +209,106 @@ async function typeToScope({ config, step, scopeRegistry, result }) {
 }
 
 /**
+ * Wait for PTY output to settle (no new data for settleTime ms)
+ * @param {Object} scopeRegistry - The scope registry
+ * @param {string} scopeName - Name of the scope to monitor
+ * @param {number} settleTime - Time in ms to wait with no new output
+ * @param {number} maxWaitTime - Maximum total wait time in ms
+ * @returns {Promise<void>} Resolves when output has settled
+ */
+async function waitForOutputSettle(scopeRegistry, scopeName, settleTime, maxWaitTime) {
+  const startTime = Date.now();
+  const pollInterval = 10; // ms between checks
+  
+  let lastStdoutLength = 0;
+  let lastChangeTime = Date.now();
+  
+  return new Promise((resolve) => {
+    const check = () => {
+      const scope = scopeRegistry.get(scopeName);
+      if (!scope) {
+        resolve(); // Scope gone, nothing to wait for
+        return;
+      }
+      
+      const currentLength = scope.stdout.length;
+      
+      if (currentLength !== lastStdoutLength) {
+        // Output changed, reset settle timer
+        lastStdoutLength = currentLength;
+        lastChangeTime = Date.now();
+      }
+      
+      const timeSinceLastChange = Date.now() - lastChangeTime;
+      const totalElapsed = Date.now() - startTime;
+      
+      if (timeSinceLastChange >= settleTime) {
+        // Output has settled
+        resolve();
+        return;
+      }
+      
+      if (totalElapsed >= maxWaitTime) {
+        // Max wait time reached, continue anyway
+        resolve();
+        return;
+      }
+      
+      setTimeout(check, pollInterval);
+    };
+    
+    check();
+  });
+}
+
+/**
  * Convert key array to terminal input string
+ * Handles both separate special keys like ["hello", "$ENTER$"]
+ * and embedded special keys like ["hello$ENTER$world"]
  */
 function convertKeysToTerminalInput(keys) {
   let output = "";
   
   for (const key of keys) {
+    // Check if the entire key is a special key
     if (key.startsWith("$") && key.endsWith("$") && terminalSpecialKeyMap[key]) {
       output += terminalSpecialKeyMap[key];
-    } else if (key.startsWith("$") && key.endsWith("$")) {
-      // Unknown special key - skip it
-      continue;
+    } else if (key.includes("$")) {
+      // May contain embedded special keys - parse them out
+      output += parseEmbeddedSpecialKeys(key);
     } else {
       output += key;
     }
   }
   
   return output;
+}
+
+/**
+ * Parse a string that may contain embedded special keys like "hello$ENTER$world"
+ */
+function parseEmbeddedSpecialKeys(str) {
+  let result = "";
+  let i = 0;
+  
+  while (i < str.length) {
+    if (str[i] === "$") {
+      // Look for closing $
+      const endIndex = str.indexOf("$", i + 1);
+      if (endIndex !== -1) {
+        const specialKey = str.slice(i, endIndex + 1);
+        if (terminalSpecialKeyMap[specialKey]) {
+          result += terminalSpecialKeyMap[specialKey];
+          i = endIndex + 1;
+          continue;
+        }
+      }
+    }
+    result += str[i];
+    i++;
+  }
+  
+  return result;
 }
 
 /**

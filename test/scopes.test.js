@@ -730,6 +730,146 @@ describe("terminateScope Action", function () {
 });
 
 // =============================================================================
+// TYPE KEYS OUTPUT SETTLE TESTS (Unit Tests)
+// =============================================================================
+
+describe("typeKeys output settle", function () {
+  this.timeout(30000);
+
+  let typeKeys, ScopeRegistry, createTerminalScope;
+
+  before(function () {
+    try {
+      typeKeys = require("../src/tests/typeKeys").typeKeys;
+      const scopes = require("../src/scopes");
+      ScopeRegistry = scopes.ScopeRegistry;
+      createTerminalScope = scopes.createTerminalScope;
+    } catch (e) {
+      // Module doesn't exist yet
+    }
+  });
+
+  it("should wait for output to settle before completing", async function () {
+    if (!typeKeys || !ScopeRegistry || !createTerminalScope) this.skip();
+    if (process.platform === "win32") this.skip();
+
+    const registry = new ScopeRegistry();
+
+    // Start a Node REPL
+    const terminalResult = await createTerminalScope({
+      command: "node",
+      args: [],
+      waitForExit: false,
+    });
+
+    registry.create("test-repl", terminalResult.process);
+    
+    // Set up output capture
+    if (terminalResult.stdout) {
+      registry.appendStdout("test-repl", terminalResult.stdout);
+    }
+    terminalResult.process.onData((data) => {
+      registry.appendStdout("test-repl", data);
+    });
+
+    // Wait for Node REPL to be ready
+    await new Promise((resolve) => {
+      const checkReady = () => {
+        const scope = registry.get("test-repl");
+        if (scope.stdout.includes("Welcome to Node.js")) {
+          resolve();
+        } else {
+          setTimeout(checkReady, 50);
+        }
+      };
+      checkReady();
+    });
+
+    const step = {
+      type: {
+        keys: ["console.log('settle-test-output')$ENTER$"],
+        scope: "test-repl",
+      },
+    };
+
+    const config = { logLevel: "silent" };
+
+    // typeKeys should wait for output to settle before returning
+    const result = await typeKeys({ config, step, scopeRegistry: registry });
+
+    // After typeKeys returns, the output should already contain our expected text
+    // because it waited for the PTY output to settle
+    const scope = registry.get("test-repl");
+    assert.ok(
+      scope.stdout.includes("settle-test-output"),
+      `stdout should contain 'settle-test-output' after typeKeys returns (output settled), got: ${scope.stdout.slice(-200)}`
+    );
+    assert.equal(result.status, "PASS", "typeKeys should pass");
+
+    // Cleanup
+    terminalResult.process.kill();
+  });
+
+  it("should capture multi-line output after settle", async function () {
+    if (!typeKeys || !ScopeRegistry || !createTerminalScope) this.skip();
+    if (process.platform === "win32") this.skip();
+
+    const registry = new ScopeRegistry();
+
+    // Start a Node REPL
+    const terminalResult = await createTerminalScope({
+      command: "node",
+      args: [],
+      waitForExit: false,
+    });
+
+    registry.create("test-multiline", terminalResult.process);
+    
+    if (terminalResult.stdout) {
+      registry.appendStdout("test-multiline", terminalResult.stdout);
+    }
+    terminalResult.process.onData((data) => {
+      registry.appendStdout("test-multiline", data);
+    });
+
+    // Wait for Node REPL to be ready
+    await new Promise((resolve) => {
+      const checkReady = () => {
+        const scope = registry.get("test-multiline");
+        if (scope.stdout.includes("Welcome to Node.js")) {
+          resolve();
+        } else {
+          setTimeout(checkReady, 50);
+        }
+      };
+      checkReady();
+    });
+
+    // Type a command that produces multi-line output
+    const step = {
+      type: {
+        keys: ["[1,2,3].forEach(x => console.log('line-' + x))$ENTER$"],
+        scope: "test-multiline",
+      },
+    };
+
+    const config = { logLevel: "silent" };
+    const result = await typeKeys({ config, step, scopeRegistry: registry });
+
+    const scope = registry.get("test-multiline");
+    
+    // All output lines should be captured
+    assert.ok(scope.stdout.includes("line-1"), `should contain line-1, got: ${scope.stdout.slice(-300)}`);
+    assert.ok(scope.stdout.includes("line-2"), `should contain line-2`);
+    assert.ok(scope.stdout.includes("line-3"), `should contain line-3`);
+    assert.equal(result.status, "PASS");
+
+    // Cleanup
+    terminalResult.process.kill();
+  });
+});
+
+// =============================================================================
 // INTEGRATION TESTS - FULL WORKFLOW
 // =============================================================================
 
@@ -1064,6 +1204,518 @@ describe("Scope Integration Tests", function () {
         result = await runTests(config);
         skipIfSchemaNotUpdated.call(this, result);
         assert.equal(result.summary.steps.fail, 0, "no steps should fail");
+      } finally {
+        if (fs.existsSync(tempFilePath)) {
+          fs.unlinkSync(tempFilePath);
+        }
+      }
+    });
+
+    it("should automatically wait for output to settle (no waitUntil needed)", async function () {
+      if (process.platform === "win32") {
+        this.skip();
+      }
+
+      // This test validates that type action automatically waits for output to settle:
+      // 1. Types to the process
+      // 2. Waits for PTY output to stabilize BEFORE completing the step
+      // 3. No separate wait step needed - it just works
+      const settleTest = {
+        tests: [
+          {
+            steps: [
+              {
+                runShell: {
+                  command: "node",
+                  scope: "type-settle",
+                  timeout: 10000,
+                  waitUntil: {
+                    stdio: {
+                      stdout: "Welcome to Node.js",
+                    },
+                  },
+                },
+              },
+              {
+                type: {
+                  keys: ["console.log('settle-test-output')$ENTER$"],
+                  scope: "type-settle",
+                },
+              },
+              // NO wait step - the type action should auto-settle
+              {
+                terminateScope: {
+                  scope: "type-settle",
+                },
+              },
+            ],
+          },
+        ],
+      };
+
+      const tempFilePath = path.resolve("./test/temp-type-settle-test.json");
+      fs.writeFileSync(tempFilePath, JSON.stringify(settleTest, null, 2));
+      const config = { input: tempFilePath, logLevel: "silent" };
+
+      let result;
+      try {
+        result = await runTests(config);
+        skipIfSchemaNotUpdated.call(this, result);
+        assert.equal(result.summary.steps.fail, 0, "no steps should fail");
+        
+        // Verify the output was captured (proves auto-settle worked)
+        const terminateStep = result.specs[0].tests[0].contexts[0].steps[2];
+        const stdout = terminateStep.outputs?.stdout || "";
+        assert.ok(
+          stdout.includes("settle-test-output"),
+          `type auto-settle should have waited for output, got: ${stdout}`
+        );
+      } finally {
+        if (fs.existsSync(tempFilePath)) {
+          fs.unlinkSync(tempFilePath);
+        }
+      }
+    });
+
+    it("should interact with actual Node REPL", async function () {
+      // Skip on Windows where node REPL behaves differently
+      if (process.platform === "win32") {
+        this.skip();
+      }
+
+      // This test uses the ACTUAL Node REPL (not a simulated one)
+      // to validate that we can:
+      // 1. Start the Node REPL
+      // 2. Execute JavaScript expressions
+      // 3. Capture the REPL's response
+      const nodeReplTest = {
+        tests: [
+          {
+            steps: [
+              {
+                runShell: {
+                  command: "node",
+                  scope: "node-repl",
+                  timeout: 10000,
+                  waitUntil: {
+                    stdio: {
+                      stdout: "Welcome to Node.js",
+                    },
+                  },
+                },
+              },
+              {
+                type: {
+                  keys: ["2 + 2$ENTER$"],
+                  scope: "node-repl",
+                },
+              },
+              {
+                wait: 500,
+              },
+              {
+                type: {
+                  keys: [".exit$ENTER$"],
+                  scope: "node-repl",
+                },
+              },
+              {
+                wait: 500,
+              },
+              {
+                terminateScope: {
+                  scope: "node-repl",
+                },
+              },
+            ],
+          },
+        ],
+      };
+
+      const tempFilePath = path.resolve("./test/temp-node-repl-test.json");
+      fs.writeFileSync(tempFilePath, JSON.stringify(nodeReplTest, null, 2));
+      const config = { input: tempFilePath, logLevel: "silent" };
+
+      let result;
+      try {
+        result = await runTests(config);
+        skipIfSchemaNotUpdated.call(this, result);
+        assert.equal(result.summary.steps.fail, 0, "no steps should fail");
+        
+        // Verify the REPL evaluated our expression
+        const terminateStep = result.specs[0].tests[0].contexts[0].steps[5];
+        const stdout = terminateStep.outputs?.stdout || "";
+        assert.ok(
+          stdout.includes("4"),
+          `Node REPL should output result of 2+2=4, got: ${stdout}`
+        );
+      } finally {
+        if (fs.existsSync(tempFilePath)) {
+          fs.unlinkSync(tempFilePath);
+        }
+      }
+    });
+
+    it("should execute console.log in Node REPL and capture output", async function () {
+      // Skip on Windows
+      if (process.platform === "win32") {
+        this.skip();
+      }
+
+      // Test console.log output capture - this is the exact use case from dev.spec.json
+      const consoleLogTest = {
+        tests: [
+          {
+            steps: [
+              {
+                runShell: {
+                  command: "node",
+                  scope: "node-console",
+                  timeout: 10000,
+                  waitUntil: {
+                    stdio: {
+                      stdout: "Welcome to Node.js",
+                    },
+                  },
+                },
+              },
+              {
+                type: {
+                  keys: ["console.log('hello from node')$ENTER$"],
+                  scope: "node-console",
+                },
+              },
+              {
+                wait: 500,
+              },
+              {
+                terminateScope: {
+                  scope: "node-console",
+                },
+              },
+            ],
+          },
+        ],
+      };
+
+      const tempFilePath = path.resolve("./test/temp-node-console-test.json");
+      fs.writeFileSync(tempFilePath, JSON.stringify(consoleLogTest, null, 2));
+      const config = { input: tempFilePath, logLevel: "silent" };
+
+      let result;
+      try {
+        result = await runTests(config);
+        skipIfSchemaNotUpdated.call(this, result);
+        assert.equal(result.summary.steps.fail, 0, "no steps should fail");
+        
+        // Verify the console.log output was captured
+        const terminateStep = result.specs[0].tests[0].contexts[0].steps[3];
+        const stdout = terminateStep.outputs?.stdout || "";
+        assert.ok(
+          stdout.includes("hello from node"),
+          `Node REPL should capture console.log output, got: ${stdout}`
+        );
+      } finally {
+        if (fs.existsSync(tempFilePath)) {
+          fs.unlinkSync(tempFilePath);
+        }
+      }
+    });
+
+    it("should handle multi-line JavaScript in Node REPL", async function () {
+      // Skip on Windows
+      if (process.platform === "win32") {
+        this.skip();
+      }
+
+      // Test multi-line input and function definition in Node REPL
+      const multiLineTest = {
+        tests: [
+          {
+            steps: [
+              {
+                runShell: {
+                  command: "node",
+                  scope: "node-multiline",
+                  timeout: 10000,
+                  waitUntil: {
+                    stdio: {
+                      stdout: "Welcome to Node.js",
+                    },
+                  },
+                },
+              },
+              {
+                // Define a function
+                type: {
+                  keys: ["function greet(name) { return 'Hello, ' + name + '!'; }$ENTER$"],
+                  scope: "node-multiline",
+                },
+              },
+              {
+                wait: 300,
+              },
+              {
+                // Call the function
+                type: {
+                  keys: ["greet('World')$ENTER$"],
+                  scope: "node-multiline",
+                },
+              },
+              {
+                wait: 500,
+              },
+              {
+                terminateScope: {
+                  scope: "node-multiline",
+                },
+              },
+            ],
+          },
+        ],
+      };
+
+      const tempFilePath = path.resolve("./test/temp-node-multiline-test.json");
+      fs.writeFileSync(tempFilePath, JSON.stringify(multiLineTest, null, 2));
+      const config = { input: tempFilePath, logLevel: "silent" };
+
+      let result;
+      try {
+        result = await runTests(config);
+        skipIfSchemaNotUpdated.call(this, result);
+        assert.equal(result.summary.steps.fail, 0, "no steps should fail");
+        
+        // Verify the function returned the expected value
+        const terminateStep = result.specs[0].tests[0].contexts[0].steps[5];
+        const stdout = terminateStep.outputs?.stdout || "";
+        assert.ok(
+          stdout.includes("Hello, World!"),
+          `Node REPL should output function result, got: ${stdout}`
+        );
+      } finally {
+        if (fs.existsSync(tempFilePath)) {
+          fs.unlinkSync(tempFilePath);
+        }
+      }
+    });
+  });
+
+  describe("Interactive terminal applications", function () {
+    it("should capture typed input in process output (cat echo test)", async function () {
+      if (process.platform === "win32") {
+        this.skip();
+      }
+
+      // This test validates that:
+      // 1. We can start an interactive process (cat)
+      // 2. Type input to it
+      // 3. The input appears in the captured output (cat echoes input)
+      const interactiveTest = {
+        tests: [
+          {
+            steps: [
+              {
+                runShell: {
+                  command: "sh",
+                  args: ["-c", "echo 'CAT_READY' && cat"],
+                  scope: "interactive-cat",
+                  timeout: 5000,
+                  waitUntil: {
+                    stdio: {
+                      stdout: "CAT_READY",
+                    },
+                  },
+                },
+              },
+              {
+                type: {
+                  keys: ["hello interactive$ENTER$"],
+                  scope: "interactive-cat",
+                },
+              },
+              {
+                wait: 500,
+              },
+              {
+                terminateScope: {
+                  scope: "interactive-cat",
+                },
+              },
+            ],
+          },
+        ],
+      };
+
+      const tempFilePath = path.resolve("./test/temp-interactive-cat-test.json");
+      fs.writeFileSync(tempFilePath, JSON.stringify(interactiveTest, null, 2));
+      const config = { input: tempFilePath, logLevel: "silent" };
+
+      let result;
+      try {
+        result = await runTests(config);
+        skipIfSchemaNotUpdated.call(this, result);
+        assert.equal(result.summary.steps.fail, 0, "no steps should fail");
+        
+        // Verify the typed input appears in the scope's captured output
+        const terminateStep = result.specs[0].tests[0].contexts[0].steps[3];
+        const stdout = terminateStep.outputs?.stdout || "";
+        assert.ok(
+          stdout.includes("hello interactive"),
+          `typed input should appear in captured output, got: ${stdout}`
+        );
+      } finally {
+        if (fs.existsSync(tempFilePath)) {
+          fs.unlinkSync(tempFilePath);
+        }
+      }
+    });
+
+    it("should support REPL-style interaction with response validation", async function () {
+      if (process.platform === "win32") {
+        this.skip();
+      }
+
+      // This test validates a REPL-like interaction:
+      // 1. Start a process that echoes back input with a prefix
+      // 2. Type commands
+      // 3. Verify the process responded to our input
+      const replTest = {
+        tests: [
+          {
+            steps: [
+              {
+                runShell: {
+                  command: "sh",
+                  args: ["-c", "echo 'REPL_READY' && while read line; do echo \"RESPONSE: $line\"; done"],
+                  scope: "repl-test",
+                  timeout: 5000,
+                  waitUntil: {
+                    stdio: {
+                      stdout: "REPL_READY",
+                    },
+                  },
+                },
+              },
+              {
+                type: {
+                  keys: ["test-command-123$ENTER$"],
+                  scope: "repl-test",
+                },
+              },
+              {
+                wait: 500,
+              },
+              {
+                terminateScope: {
+                  scope: "repl-test",
+                },
+              },
+            ],
+          },
+        ],
+      };
+
+      const tempFilePath = path.resolve("./test/temp-repl-interaction-test.json");
+      fs.writeFileSync(tempFilePath, JSON.stringify(replTest, null, 2));
+      const config = { input: tempFilePath, logLevel: "silent" };
+
+      let result;
+      try {
+        result = await runTests(config);
+        skipIfSchemaNotUpdated.call(this, result);
+        assert.equal(result.summary.steps.fail, 0, "no steps should fail");
+        
+        // Verify the REPL responded to our input
+        const terminateStep = result.specs[0].tests[0].contexts[0].steps[3];
+        const stdout = terminateStep.outputs?.stdout || "";
+        assert.ok(
+          stdout.includes("RESPONSE: test-command-123"),
+          `REPL should echo back our input with RESPONSE prefix, got: ${stdout}`
+        );
+      } finally {
+        if (fs.existsSync(tempFilePath)) {
+          fs.unlinkSync(tempFilePath);
+        }
+      }
+    });
+
+    it("should handle multiple rounds of interaction", async function () {
+      if (process.platform === "win32") {
+        this.skip();
+      }
+
+      // Validates multi-turn interaction with an interactive process
+      const multiTurnTest = {
+        tests: [
+          {
+            steps: [
+              {
+                runShell: {
+                  command: "sh",
+                  args: ["-c", "echo 'CALC_READY' && while read line; do echo \"Got: $line\"; done"],
+                  scope: "multi-turn",
+                  timeout: 5000,
+                  waitUntil: {
+                    stdio: {
+                      stdout: "CALC_READY",
+                    },
+                  },
+                },
+              },
+              {
+                type: {
+                  keys: ["first-input$ENTER$"],
+                  scope: "multi-turn",
+                },
+              },
+              {
+                wait: 300,
+              },
+              {
+                type: {
+                  keys: ["second-input$ENTER$"],
+                  scope: "multi-turn",
+                },
+              },
+              {
+                wait: 300,
+              },
+              {
+                type: {
+                  keys: ["third-input$ENTER$"],
+                  scope: "multi-turn",
+                },
+              },
+              {
+                wait: 300,
+              },
+              {
+                terminateScope: {
+                  scope: "multi-turn",
+                },
+              },
+            ],
+          },
+        ],
+      };
+
+      const tempFilePath = path.resolve("./test/temp-multi-turn-test.json");
+      fs.writeFileSync(tempFilePath, JSON.stringify(multiTurnTest, null, 2));
+      const config = { input: tempFilePath, logLevel: "silent" };
+
+      let result;
+      try {
+        result = await runTests(config);
+        skipIfSchemaNotUpdated.call(this, result);
+        assert.equal(result.summary.steps.fail, 0, "no steps should fail");
+        
+        // Verify all three inputs were processed
+        const terminateStep = result.specs[0].tests[0].contexts[0].steps[7];
+        const stdout = terminateStep.outputs?.stdout || "";
+        
+        assert.ok(stdout.includes("Got: first-input"), `should have processed first input, got: ${stdout}`);
+        assert.ok(stdout.includes("Got: second-input"), `should have processed second input, got: ${stdout}`);
+        assert.ok(stdout.includes("Got: third-input"), `should have processed third input, got: ${stdout}`);
       } finally {
         if (fs.existsSync(tempFilePath)) {
           fs.unlinkSync(tempFilePath);
