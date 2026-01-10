@@ -1,0 +1,134 @@
+{
+  "tests": [
+    {
+      "steps": [
+        {
+          "runShell": {
+            "command": "sh",
+            "args": ["-c", "echo 'READY' && sleep 5"],
+            "scope": "basic-scope",
+            "timeout": 3000,
+            "waitUntil": {
+              "stdio": {
+                "stdout": "READY"
+              }
+            }
+          }
+        },
+        {
+          "terminateScope": {
+            "scope": "basic-scope"
+          }
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "runShell": {
+            "command": "sh",
+            "args": ["-c", "echo 'SERVER_STARTED' && while true; do sleep 1; done"],
+            "scope": "args-scope",
+            "timeout": 3000,
+            "waitUntil": {
+              "stdio": {
+                "stdout": "SERVER_STARTED"
+              }
+            }
+          }
+        },
+        {
+          "runShell": "echo 'Other work while scope runs'"
+        },
+        {
+          "terminateScope": {
+            "scope": "args-scope"
+          }
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "runShell": {
+            "command": "sh",
+            "args": ["-c", "echo 'BG_READY' && sleep 10"],
+            "scope": "background-scope",
+            "timeout": 3000,
+            "waitUntil": {
+              "stdio": {
+                "stdout": "BG_READY"
+              }
+            }
+          }
+        },
+        {
+          "runShell": "echo 'Background process started'"
+        },
+        {
+          "terminateScope": {
+            "scope": "background-scope"
+          }
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "runShell": {
+            "command": "sh",
+            "args": ["-c", "echo 'SCOPE_A_READY' && sleep 10"],
+            "scope": "multi-scope-a",
+            "timeout": 3000,
+            "waitUntil": {
+              "stdio": {
+                "stdout": "SCOPE_A_READY"
+              }
+            }
+          }
+        },
+        {
+          "runShell": {
+            "command": "sh",
+            "args": ["-c", "echo 'SCOPE_B_READY' && sleep 10"],
+            "scope": "multi-scope-b",
+            "timeout": 3000,
+            "waitUntil": {
+              "stdio": {
+                "stdout": "SCOPE_B_READY"
+              }
+            }
+          }
+        },
+        {
+          "runShell": "echo 'Both scopes are running'"
+        },
+        {
+          "terminateScope": {
+            "scope": "multi-scope-a"
+          }
+        },
+        {
+          "terminateScope": {
+            "scope": "multi-scope-b"
+          }
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "runShell": {
+            "command": "sh",
+            "args": ["-c", "echo 'Short-lived scoped command' && exit 0"],
+            "scope": "foreground-scope",
+            "timeout": 5000
+          }
+        },
+        {
+          "runShell": "echo 'After foreground command completed'"
+        }
+      ]
+    }
+  ]
+}

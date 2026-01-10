@@ -1,0 +1,94 @@
+{
+  "tests": [
+    {
+      "steps": [
+        {
+          "runShell": {
+            "command": "sh",
+            "args": ["-c", "echo 'FIRST' && sleep 10"],
+            "scope": "duplicate-scope",
+            "timeout": 3000,
+            "waitUntil": {
+              "stdio": {
+                "stdout": "FIRST"
+              }
+            }
+          }
+        },
+        {
+          "runShell": "echo 'Scope is running, will terminate now'"
+        },
+        {
+          "terminateScope": {
+            "scope": "duplicate-scope"
+          }
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "runShell": "echo 'Setting up test for special characters'"
+        },
+        {
+          "runShell": {
+            "command": "sh",
+            "args": ["-c", "echo 'SPECIAL_READY' && sleep 5"],
+            "scope": "scope-with-dashes_and_underscores",
+            "timeout": 3000,
+            "waitUntil": {
+              "stdio": {
+                "stdout": "SPECIAL_READY"
+              }
+            }
+          }
+        },
+        {
+          "terminateScope": {
+            "scope": "scope-with-dashes_and_underscores"
+          }
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "runShell": {
+            "command": "sh",
+            "args": ["-c", "echo 'QUICK_EXIT'"],
+            "scope": "early-exit-scope",
+            "timeout": 5000
+          }
+        },
+        {
+          "runShell": "echo 'After quick exit - no terminateScope needed'"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "runShell": {
+            "command": "sh",
+            "args": ["-c", "echo 'BG_SILENT' && sleep 10"],
+            "scope": "silent-scope",
+            "timeout": 3000,
+            "waitUntil": {
+              "stdio": {
+                "stdout": "BG_SILENT"
+              }
+            }
+          }
+        },
+        {
+          "runShell": "echo 'Silent scope is running in background'"
+        },
+        {
+          "terminateScope": {
+            "scope": "silent-scope"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 const { validate } = require("doc-detective-common");
 const { Key } = require("webdriverio");
+const { log } = require("../utils");
 const {
   findElementByCriteria,
 } = require("./findStrategies");
@@ -66,8 +67,43 @@ const specialKeyMap = {
   $ZANKAKU_HANDKAKU$: Key.ZenkakuHankaku,
 };
 
-// Type a sequence of keys in the active element.
-async function typeKeys({ config, step, driver }) {
+// Map special keys to terminal escape sequences
+const terminalSpecialKeyMap = {
+  $ENTER$: "\n",
+  $RETURN$: "\r",
+  $TAB$: "\t",
+  $ESCAPE$: "\x1b",
+  $BACKSPACE$: "\x7f",
+  $SPACE$: " ",
+  $DELETE$: "\x1b[3~",
+  $ARROW_UP$: "\x1b[A",
+  $ARROW_DOWN$: "\x1b[B",
+  $ARROW_RIGHT$: "\x1b[C",
+  $ARROW_LEFT$: "\x1b[D",
+  $HOME$: "\x1b[H",
+  $END$: "\x1b[F",
+  $PAGE_UP$: "\x1b[5~",
+  $PAGE_DOWN$: "\x1b[6~",
+  $INSERT$: "\x1b[2~",
+  $F1$: "\x1bOP",
+  $F2$: "\x1bOQ",
+  $F3$: "\x1bOR",
+  $F4$: "\x1bOS",
+  $F5$: "\x1b[15~",
+  $F6$: "\x1b[17~",
+  $F7$: "\x1b[18~",
+  $F8$: "\x1b[19~",
+  $F9$: "\x1b[20~",
+  $F10$: "\x1b[21~",
+  $F11$: "\x1b[23~",
+  $F12$: "\x1b[24~",
+  $CTRL_C$: "\x03",
+  $CTRL_D$: "\x04",
+  $CTRL_Z$: "\x1a",
+};
+
+// Type a sequence of keys in the active element or a named scope.
+async function typeKeys({ config, step, driver, scopeRegistry }) {
   let result = { status: "PASS", description: "Typed keys." };
 
   // Validate step payload
@@ -106,6 +142,179 @@ async function typeKeys({ config, step, driver }) {
     return result;
   }
 
+  // Check if this is a scope-targeted type action
+  const scopeName = step.type.scope;
+  
+  if (scopeName) {
+    // Type to a named scope
+    return await typeToScope({ config, step, scopeRegistry, result });
+  }
+
+  // Browser-based typing
+  return await typeToBrowser({ config, step, driver, result });
+}
+
+/**
+ * Type keys to a named scope (terminal)
+ */
+async function typeToScope({ config, step, scopeRegistry, result }) {
+  const scopeName = step.type.scope;
+  
+  log(config, "debug", `Typing keys to scope: ${scopeName}`);
+  
+  // Check if scope registry is available
+  if (!scopeRegistry) {
+    result.status = "FAIL";
+    result.description = "Scope registry not available. Typing to scopes requires scope support.";
+    return result;
+  }
+  
+  // Check if scope exists
+  if (!scopeRegistry.has(scopeName)) {
+    result.status = "FAIL";
+    result.description = `Scope '${scopeName}' does not exist.`;
+    return result;
+  }
+  
+  const scope = scopeRegistry.get(scopeName);
+  
+  if (!scope.process || typeof scope.process.write !== "function") {
+    result.status = "FAIL";
+    result.description = `Scope '${scopeName}' does not support writing (no write method).`;
+    return result;
+  }
+  
+  try {
+    // Convert keys to terminal input
+    const terminalInput = convertKeysToTerminalInput(step.type.keys);
+    
+    // Write to the scope's process
+    scope.process.write(terminalInput);
+    
+    log(config, "debug", `Wrote ${terminalInput.length} characters to scope '${scopeName}'`);
+    
+    // Wait for PTY output to settle (no new data for settleTime ms)
+    // This ensures the terminal has finished processing and echoing the input
+    const settleTime = 50; // ms to wait for output to stabilize
+    const maxWaitTime = 5000; // max total wait time
+    await waitForOutputSettle(scopeRegistry, scopeName, settleTime, maxWaitTime);
+    
+    result.description = `Typed keys to scope '${scopeName}'.`;
+    return result;
+  } catch (error) {
+    result.status = "FAIL";
+    result.description = `Failed to type to scope '${scopeName}': ${error.message}`;
+    return result;
+  }
+}
+
+/**
+ * Wait for PTY output to settle (no new data for settleTime ms)
+ * @param {Object} scopeRegistry - The scope registry
+ * @param {string} scopeName - Name of the scope to monitor
+ * @param {number} settleTime - Time in ms to wait with no new output
+ * @param {number} maxWaitTime - Maximum total wait time in ms
+ * @returns {Promise<void>} Resolves when output has settled
+ */
+async function waitForOutputSettle(scopeRegistry, scopeName, settleTime, maxWaitTime) {
+  const startTime = Date.now();
+  const pollInterval = 10; // ms between checks
+  
+  let lastStdoutLength = 0;
+  let lastChangeTime = Date.now();
+  
+  return new Promise((resolve) => {
+    const check = () => {
+      const scope = scopeRegistry.get(scopeName);
+      if (!scope) {
+        resolve(); // Scope gone, nothing to wait for
+        return;
+      }
+      
+      const currentLength = scope.stdout.length;
+      
+      if (currentLength !== lastStdoutLength) {
+        // Output changed, reset settle timer
+        lastStdoutLength = currentLength;
+        lastChangeTime = Date.now();
+      }
+      
+      const timeSinceLastChange = Date.now() - lastChangeTime;
+      const totalElapsed = Date.now() - startTime;
+      
+      if (timeSinceLastChange >= settleTime) {
+        // Output has settled
+        resolve();
+        return;
+      }
+      
+      if (totalElapsed >= maxWaitTime) {
+        // Max wait time reached, continue anyway
+        resolve();
+        return;
+      }
+      
+      setTimeout(check, pollInterval);
+    };
+    
+    check();
+  });
+}
+
+/**
+ * Convert key array to terminal input string
+ * Handles both separate special keys like ["hello", "$ENTER$"]
+ * and embedded special keys like ["hello$ENTER$world"]
+ */
+function convertKeysToTerminalInput(keys) {
+  let output = "";
+  
+  for (const key of keys) {
+    // Check if the entire key is a special key
+    if (key.startsWith("$") && key.endsWith("$") && terminalSpecialKeyMap[key]) {
+      output += terminalSpecialKeyMap[key];
+    } else if (key.includes("$")) {
+      // May contain embedded special keys - parse them out
+      output += parseEmbeddedSpecialKeys(key);
+    } else {
+      output += key;
+    }
+  }
+  
+  return output;
+}
+
+/**
+ * Parse a string that may contain embedded special keys like "hello$ENTER$world"
+ */
+function parseEmbeddedSpecialKeys(str) {
+  let result = "";
+  let i = 0;
+  
+  while (i < str.length) {
+    if (str[i] === "$") {
+      // Look for closing $
+      const endIndex = str.indexOf("$", i + 1);
+      if (endIndex !== -1) {
+        const specialKey = str.slice(i, endIndex + 1);
+        if (terminalSpecialKeyMap[specialKey]) {
+          result += terminalSpecialKeyMap[specialKey];
+          i = endIndex + 1;
+          continue;
+        }
+      }
+    }
+    result += str[i];
+    i++;
+  }
+  
+  return result;
+}
+
+/**
+ * Type keys to browser element
+ */
+async function typeToBrowser({ config, step, driver, result }) {
   // Find element to type into if any criteria are specified
   let element = null;
   const hasElementCriteria = step.type.selector || step.type.elementText || 
@@ -193,3 +402,5 @@ async function typeKeys({ config, step, driver }) {
   // PASS
   return result;
 }
+
+module.exports = { typeKeys };
