@@ -7,6 +7,56 @@
 
 const pty = require("node-pty");
 const os = require("os");
+const fs = require("fs");
+
+/**
+ * Find the best available shell on the system
+ * @returns {string} Path to shell executable
+ */
+function findShell() {
+  if (os.platform() === "win32") {
+    return "cmd.exe";
+  }
+  
+  // Try to find a suitable shell on Unix-like systems
+  const possibleShells = [
+    "/bin/bash",
+    "/usr/bin/bash",
+    "/bin/sh",
+    "/usr/bin/sh",
+    "/bin/zsh",
+    "/usr/bin/zsh",
+  ];
+  
+  for (const shell of possibleShells) {
+    try {
+      if (fs.existsSync(shell)) {
+        return shell;
+      }
+    } catch (e) {
+      // Continue to next shell
+    }
+  }
+  
+  // Fallback to sh (should always exist on Unix)
+  return "/bin/sh";
+}
+
+/**
+ * Check if a command needs to be run through a shell
+ * @param {string} command - The command to check
+ * @returns {boolean} True if command should run through shell
+ */
+function needsShell(command) {
+  // If it's an absolute path that exists, run directly
+  if (command.startsWith("/") && fs.existsSync(command)) {
+    return false;
+  }
+  
+  // Common system commands that should run through shell
+  const shellCommands = ["echo", "cat", "ls", "pwd", "printenv", "cd", "export"];
+  return shellCommands.includes(command);
+}
 
 /**
  * Create a terminal scope with a PTY-backed process
@@ -31,9 +81,23 @@ async function createTerminalScope(options) {
     rows = 24,
   } = options;
 
-  // Determine shell based on platform
-  const shell = os.platform() === "win32" ? "cmd.exe" : command;
-  const shellArgs = os.platform() === "win32" ? ["/c", command, ...args] : args;
+  // Determine if we need to use a shell or can run directly
+  let shell;
+  let shellArgs;
+  
+  if (os.platform() === "win32") {
+    // Windows always uses cmd.exe
+    shell = "cmd.exe";
+    shellArgs = ["/c", command, ...args];
+  } else if (needsShell(command)) {
+    // Use shell for built-in commands
+    shell = findShell();
+    shellArgs = ["-c", `${command} ${args.join(" ")}`];
+  } else {
+    // Run command directly (works for executables like 'node', 'bash', etc.)
+    shell = command;
+    shellArgs = args;
+  }
 
   // Merge environment variables
   const mergedEnv = { ...process.env, ...env };
