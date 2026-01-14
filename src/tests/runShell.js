@@ -1,13 +1,104 @@
 const { validate } = require("doc-detective-common");
 const {
-  spawnCommand,
   log,
   calculateFractionalDifference,
 } = require("../utils");
 const fs = require("fs");
 const path = require("path");
+const pty = require("node-pty");
+const os = require("os");
+const crypto = require("crypto");
 
 exports.runShell = runShell;
+
+/**
+ * Executes a command using node-pty (pseudo-terminal).
+ * Returns a promise that resolves with combined output and exit code.
+ * @param {string} cmd - The command to execute.
+ * @param {string[]} args - The arguments to pass to the command.
+ * @param {object} options - Options for command execution.
+ * @param {string} options.cwd - Working directory.
+ * @returns {Promise<{output: string, exitCode: number}>}
+ */
+function ptyCommand(cmd, args = [], options = {}) {
+  return new Promise((resolve, reject) => {
+    // Build full command string
+    const fullCommand = args.length > 0 ? `${cmd} ${args.join(" ")}` : cmd;
+    
+    let shell, shellArgs;
+    let tempBatchFile = null;
+    
+    if (process.platform === "win32") {
+      // On Windows, use a temporary batch file to properly handle complex commands
+      // with pipes, quotes, and special characters that ConPTY has trouble with
+      const tempDir = os.tmpdir();
+      const uniqueId = crypto.randomBytes(8).toString("hex");
+      tempBatchFile = path.join(tempDir, `docdet_${uniqueId}.bat`);
+      
+      // Write command to batch file with @echo off to suppress command echo
+      fs.writeFileSync(tempBatchFile, `@echo off\n${fullCommand}\n`);
+      
+      shell = "cmd.exe";
+      shellArgs = ["/c", tempBatchFile];
+    } else {
+      shell = process.env.SHELL || "/bin/bash";
+      shellArgs = ["-c", fullCommand];
+    }
+
+    // Configure PTY options
+    const ptyOptions = {
+      name: "xterm-color",
+      cols: 80,
+      rows: 30,
+      cwd: options.cwd || process.cwd(),
+      env: process.env,
+    };
+
+    let ptyProcess;
+    try {
+      ptyProcess = pty.spawn(shell, shellArgs, ptyOptions);
+    } catch (err) {
+      // Clean up batch file on error
+      if (tempBatchFile && fs.existsSync(tempBatchFile)) {
+        try { fs.unlinkSync(tempBatchFile); } catch (e) {}
+      }
+      reject(new Error(`Failed to spawn PTY process: ${err.message}`));
+      return;
+    }
+
+    let output = "";
+
+    ptyProcess.onData((data) => {
+      output += data;
+    });
+
+    ptyProcess.onExit(({ exitCode }) => {
+      // Clean up temp batch file
+      if (tempBatchFile && fs.existsSync(tempBatchFile)) {
+        try { fs.unlinkSync(tempBatchFile); } catch (e) {}
+      }
+      
+      // Clean up the output - remove ANSI escape codes and normalize line endings
+      let cleanOutput = output
+        // Remove ANSI escape sequences (CSI sequences)
+        .replace(/\x1B\[[0-9;]*[a-zA-Z]/g, "")
+        // Remove OSC sequences (title setting, etc.)
+        .replace(/\x1B\][^\x07]*\x07/g, "")
+        // Remove DEC private mode sequences
+        .replace(/\x1B\[\?[0-9]+[a-z]/gi, "")
+        // Normalize line endings
+        .replace(/\r\n/g, "\n")
+        .replace(/\r/g, "\n")
+        // Remove trailing newline
+        .replace(/\n$/, "");
+
+      resolve({
+        output: cleanOutput,
+        exitCode: exitCode,
+      });
+    });
+  });
+}
 
 // Run a shell command.
 async function runShell({ config, step }) {
@@ -48,16 +139,18 @@ async function runShell({ config, step }) {
     timeout: step.runShell.timeout || 60000,
   };
 
-  // Execute command
+  // Execute command using node-pty
   const timeout = step.runShell.timeout;
   const options = {};
   if (step.runShell.workingDirectory)
     options.cwd = step.runShell.workingDirectory;
-  const commandPromise = spawnCommand(
+  
+  const commandPromise = ptyCommand(
     step.runShell.command,
     step.runShell.args,
     options
   );
+  
   let timeoutId;
   const timeoutPromise = new Promise((resolve, reject) => {
     timeoutId = setTimeout(() => {
@@ -69,8 +162,10 @@ async function runShell({ config, step }) {
     // Wait for command to finish or timeout
     const commandResult = await Promise.race([commandPromise, timeoutPromise]);
     clearTimeout(timeoutId);
-    result.outputs.stdio.stdout = commandResult.stdout.replace(/\r$/, "");
-    result.outputs.stdio.stderr = commandResult.stderr.replace(/\r$/, "");
+    // node-pty provides combined output (stdout and stderr are merged in PTY)
+    // Store in stdout for compatibility, stderr will be empty
+    result.outputs.stdio.stdout = commandResult.output.replace(/\r$/, "");
+    result.outputs.stdio.stderr = "";
     result.outputs.exitCode = commandResult.exitCode;
   } catch (error) {
     result.status = "FAIL";
