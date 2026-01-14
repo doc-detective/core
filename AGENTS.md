@@ -153,3 +153,83 @@ spec (file) → test → context (browser/platform combo) → step (action)
 - Main docs at https://doc-detective.com
 - Schemas at https://doc-detective.com/reference/schemas/
 - Report issues to https://github.com/doc-detective/doc-detective-core/issues
+
+## Skills System
+
+This project includes a skills library (`.github/skills/`) from [obra/superpowers](https://github.com/obra/superpowers). Skills are proven techniques, patterns, and workflows that guide AI coding assistants.
+
+### The Rule: Check Skills BEFORE Any Response
+
+**Invoke relevant skills BEFORE any response or action.** Even a 1% chance a skill might apply means check it first.
+
+```
+User message received → Might any skill apply? → YES (even 1%) → Load skill → Follow it
+                                              → NO (definitely not) → Respond
+```
+
+### Red Flags (Stop—You're Rationalizing)
+
+| Thought | Reality |
+|---------|---------|
+| "This is just a simple question" | Questions are tasks. Check for skills. |
+| "I need more context first" | Skill check comes BEFORE clarifying questions. |
+| "Let me explore the codebase first" | Skills tell you HOW to explore. Check first. |
+| "This doesn't need a formal skill" | If a skill exists, use it. |
+| "I remember this skill" | Skills evolve. Read current version. |
+| "The skill is overkill" | Simple things become complex. Use it. |
+| "I'll just do this one thing first" | Check BEFORE doing anything. |
+
+### Available Skills
+
+Located in `.github/skills/`:
+
+| Skill | When to Use |
+|-------|-------------|
+| **test-driven-development** | Before implementing any feature or bugfix—write test first |
+| **systematic-debugging** | When encountering any bug, test failure, or unexpected behavior |
+| **brainstorming** | When exploring solutions or generating ideas |
+| **writing-plans** | When planning multi-step implementations |
+| **executing-plans** | When executing implementation plans with independent tasks |
+| **verification-before-completion** | Before declaring any task complete |
+| **writing-skills** | When creating or editing skills |
+| **using-superpowers** | Reference for how the skills system works |
+| **dispatching-parallel-agents** | When tasks can be parallelized with subagents |
+| **subagent-driven-development** | When using subagents for implementation |
+| **requesting-code-review** | When preparing code for review |
+| **receiving-code-review** | When handling code review feedback |
+| **finishing-a-development-branch** | When completing work on a branch |
+| **using-git-worktrees** | When working with git worktrees |
+
+### Skill Priority
+
+When multiple skills could apply:
+
+1. **Process skills first** (brainstorming, systematic-debugging) — determine HOW to approach
+2. **Implementation skills second** (test-driven-development) — guide execution
+
+Examples:
+- "Let's build X" → brainstorming first, then implementation skills
+- "Fix this bug" → systematic-debugging first, then domain-specific skills
+
+### Key Skill Principles
+
+**Test-Driven Development (TDD):**
+- Write the test first. Watch it fail. Write minimal code to pass.
+- If you didn't watch the test fail, you don't know if it tests the right thing.
+- Write code before test? Delete it. Start over. No exceptions.
+
+**Systematic Debugging:**
+- ALWAYS find root cause before attempting fixes.
+- No fixes without completing root cause investigation first.
+- If 3+ fixes failed, question the architecture—don't attempt fix #4.
+
+**Verification Before Completion:**
+- Never declare work complete without verification.
+- Run tests, check for errors, validate the change works.
+
+### Skill Types
+
+- **Rigid** (TDD, debugging): Follow exactly. Don't adapt away discipline.
+- **Flexible** (patterns): Adapt principles to context.
+
+The skill itself tells you which type it is.
