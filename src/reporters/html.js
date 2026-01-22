@@ -741,11 +741,15 @@ function buildStep(step, index) {
   const result = step.result || 'SKIPPED';
   const badge = `<span class="badge badge-${result.toLowerCase()}">${result}</span>`;
   
-  // Determine the action type
+  // Determine the action type - look for the action property
   let action = 'Unknown';
-  const stepKeys = Object.keys(step).filter(key => !['result', 'description', 'outputs'].includes(key));
+  const excludedKeys = ['result', 'description', 'outputs', 'stepId', 'resultDescription'];
+  const stepKeys = Object.keys(step).filter(key => !excludedKeys.includes(key));
   if (stepKeys.length > 0) {
     action = stepKeys[0];
+  } else if (step.description) {
+    // If no action key found, use description as fallback
+    action = 'Step';
   }
   
   return `
