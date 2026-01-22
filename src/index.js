@@ -4,9 +4,11 @@ const {
 const { log, cleanTemp } = require("./utils");
 const { runSpecs, runViaApi, getRunner } = require("./tests");
 const { telemetryNotice, sendTelemetry } = require("./telem");
+const { generateHtmlReport } = require("./reporters/html");
 
 exports.runTests = runTests;
 exports.getRunner = getRunner;
+exports.generateHtmlReport = generateHtmlReport;
 
 const supportMessage = `
 ##########################################################################
