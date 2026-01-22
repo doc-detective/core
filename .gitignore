@@ -113,6 +113,16 @@ browser-snapshots
 test/artifacts/output/
 test/artifacts/static/
 test/artifacts/*.png
+test/temp-*
+
+# HTML report test files
+test-report.html
+test-report-auto.html
+test-html-report.js
+test-auto-html-report.js
+test-config-with-html.json
+comprehensive-test-report.html
+generate-sample-report.js
 
 # Screenshot artifacts in root
 /*.png

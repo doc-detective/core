@@ -19,7 +19,7 @@ npm i doc-detective-core
 ## Init
 
 ```javascript
-const { runTests, runCoverage } = require("doc-detective-core");
+const { runTests, generateHtmlReport } = require("doc-detective-core");
 ```
 
 ## Functions
@@ -27,6 +27,21 @@ const { runTests, runCoverage } = require("doc-detective-core");
 ### `runTests({config})`
 
 Run test specifications. Returns a test report object. Takes [`config`](https://doc-detective.com/reference/schemas/config.html) as input. Parses paths in the `config.input` for test specifications to perform.
+
+### `generateHtmlReport(results, config, outputPath)`
+
+Generate a self-contained HTML report from test results. See [HTML Reporter documentation](src/reporters/README.md) for details.
+
+**Parameters:**
+- `results`: Test results object returned by `runTests()`
+- `config`: Doc Detective configuration object
+- `outputPath`: Path where the HTML report should be saved
+
+**Example:**
+```javascript
+const results = await runTests(config);
+await generateHtmlReport(results, config, './test-report.html');
+```
 
 ## Contributions
 
