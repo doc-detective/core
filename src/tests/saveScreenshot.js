@@ -237,6 +237,32 @@ async function saveScreenshot({ config, step, driver }) {
     rect.width += padding.left + padding.right;
     rect.height += padding.top + padding.bottom;
 
+    // Get viewport dimensions for clamping
+    const viewport = await driver.execute(() => ({
+      width: window.innerWidth,
+      height: window.innerHeight,
+    }));
+
+    // Clamp coordinates to viewport bounds (prevent negative values and overflow)
+    if (rect.x < 0) {
+      rect.width += rect.x; // Reduce width by the amount we're clamping
+      rect.x = 0;
+    }
+    if (rect.y < 0) {
+      rect.height += rect.y; // Reduce height by the amount we're clamping
+      rect.y = 0;
+    }
+    if (rect.x + rect.width > viewport.width) {
+      rect.width = viewport.width - rect.x;
+    }
+    if (rect.y + rect.height > viewport.height) {
+      rect.height = viewport.height - rect.y;
+    }
+
+    // Ensure width and height are at least 1 pixel
+    rect.width = Math.max(1, rect.width);
+    rect.height = Math.max(1, rect.height);
+
     // Scale the values based on the pixel density
     rect.x *= pixelDensity;
     rect.y *= pixelDensity;

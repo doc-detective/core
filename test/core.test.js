@@ -41,6 +41,26 @@ describe("Run tests successfully", function () {
   // Set indefinite timeout
   this.timeout(0);
   describe("Core test suite", function () {
+    // Screenshot test cleanup helper
+    const screenshotCleanupPaths = [
+      path.join(artifactPath, "screenshot-boolean.png"),
+      path.join(artifactPath, "image.png"),
+      path.join(artifactPath, "static", "images", "crop.png"),
+      path.join(artifactPath, "static", "images", "padding.png"),
+    ];
+    
+    const cleanupScreenshotFiles = () => {
+      screenshotCleanupPaths.forEach((filePath) => {
+        try {
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
+        } catch (err) {
+          // Ignore cleanup errors
+        }
+      });
+    };
+
     // For each file (not directory) in artifactPath, create an individual test
     const files = fs.readdirSync(artifactPath);
     files.forEach((file) => {
@@ -49,9 +69,22 @@ describe("Run tests successfully", function () {
         it(`Test file: ${file}`, async () => {
           const config_tests = JSON.parse(JSON.stringify(config_base));
           config_tests.runTests.input = filePath;
-          const result = await runTests(config_tests);
-          if (result === null) assert.fail("Expected result to be non-null");
-          assert.equal(result.summary.specs.fail, 0);
+          
+          // Special handling for screenshot test - cleanup before and after
+          const isScreenshotTest = file === "screenshot.spec.json";
+          if (isScreenshotTest) {
+            cleanupScreenshotFiles();
+          }
+          
+          try {
+            const result = await runTests(config_tests);
+            if (result === null) assert.fail("Expected result to be non-null");
+            assert.equal(result.summary.specs.fail, 0);
+          } finally {
+            if (isScreenshotTest) {
+              cleanupScreenshotFiles();
+            }
+          }
         });
       }
     });
