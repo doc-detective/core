@@ -9,6 +9,9 @@ const { findElement } = require("./tests/findElement");
 const { runShell } = require("./tests/runShell");
 const { checkLink } = require("./tests/checkLink");
 const { typeKeys } = require("./tests/typeKeys");
+const { terminateScope } = require("./tests/terminateScope");
+const { createScope } = require("./tests/createScope");
+const { typeToScope } = require("./tests/typeToScope");
 const { wait } = require("./tests/wait");
 const { saveScreenshot } = require("./tests/saveScreenshot");
 const { startRecording } = require("./tests/startRecording");
@@ -27,6 +30,7 @@ const { setAppiumHome } = require("./appium");
 const { resolveExpression } = require("./expressions");
 const { getEnvironment, getAvailableApps } = require("./config");
 const { uploadChangedFiles } = require("./integrations");
+const { ScopeRegistry } = require("./scopes");
 
 exports.runSpecs = runSpecs;
 exports.runViaApi = runViaApi;
@@ -368,6 +372,9 @@ async function runSpecs({ resolvedTests }) {
   const config = resolvedTests.config;
   const specs = resolvedTests.specs;
 
+  // Create scope registry for terminal/browser scopes
+  const scopeRegistry = new ScopeRegistry();
+
   // Get runner details
   const runnerDetails = {
     environment: getEnvironment(),
@@ -647,6 +654,7 @@ async function runSpecs({ resolvedTests }) {
             step: step,
             driver: driver,
             metaValues: metaValues,
+            scopeRegistry: scopeRegistry,
             options: {
               openApiDefinitions: context.openApi || [],
             },
@@ -692,6 +700,7 @@ async function runSpecs({ resolvedTests }) {
             context: context,
             step: stopRecordStep,
             driver: driver,
+            scopeRegistry: scopeRegistry,
             options: {
               openApiDefinitions,
             },
@@ -823,6 +832,13 @@ async function runSpecs({ resolvedTests }) {
     }
   }
 
+  // Clean up terminal/browser scopes
+  try {
+    await scopeRegistry.cleanup();
+  } catch (error) {
+    log(config, "warning", `Failed to cleanup scopes: ${error.message}`);
+  }
+
   return report;
 }
 
@@ -833,6 +849,7 @@ async function runStep({
   step,
   driver,
   metaValues = {},
+  scopeRegistry,
   options = {},
 }) {
   let actionResult;
@@ -904,6 +921,24 @@ async function runStep({
     });
   } else if (typeof step.wait !== "undefined") {
     actionResult = await wait({ step: step, driver: driver });
+  } else if (typeof step.terminateScope !== "undefined") {
+    actionResult = await terminateScope({
+      config: config,
+      step: step,
+      scopeRegistry: scopeRegistry,
+    });
+  } else if (typeof step.createScope !== "undefined") {
+    actionResult = await createScope({
+      config: config,
+      step: step,
+      scopeRegistry: scopeRegistry,
+    });
+  } else if (typeof step.typeToScope !== "undefined") {
+    actionResult = await typeToScope({
+      config: config,
+      step: step,
+      scopeRegistry: scopeRegistry,
+    });
   } else {
     actionResult = {
       status: "FAIL",
