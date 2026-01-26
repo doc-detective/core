@@ -952,21 +952,21 @@ async function runStep({
  * Check if a port is available (not in use).
  * @param {number} port - Port number to check
  * @param {string} host - Host to check on (default: 127.0.0.1)
- * @returns {Promise<boolean>} - True if port is available, false if in use
+ * @returns {Promise<{available: boolean, error: {code: string, message: string}|null}>} - Object with availability status and error details
  */
 async function checkPortAvailable(port, host = "127.0.0.1") {
   return new Promise((resolve) => {
     const server = net.createServer();
     server.once("error", (err) => {
-      if (err.code === "EADDRINUSE") {
-        resolve(false); // Port is in use
-      } else {
-        resolve(true); // Other error, assume available
-      }
+      // Treat any server error as port unavailable, with error details
+      resolve({
+        available: false,
+        error: { code: err.code || "UNKNOWN", message: err.message || "Unknown error" }
+      });
     });
     server.once("listening", () => {
       server.close();
-      resolve(true); // Port is available
+      resolve({ available: true, error: null }); // Port is available
     });
     server.listen(port, host);
   });
@@ -982,7 +982,7 @@ async function checkPortAvailable(port, host = "127.0.0.1") {
 async function appiumIsReady(timeoutMs = 60000) {
   const startTime = Date.now();
   const hosts = ["127.0.0.1", "localhost"];
-  let lastError = null;
+  let lastErrorPerHost = {};
   let successHost = null;
 
   while (Date.now() - startTime < timeoutMs) {
@@ -999,23 +999,44 @@ async function appiumIsReady(timeoutMs = 60000) {
           return successHost;
         }
       } catch (err) {
-        lastError = err;
+        lastErrorPerHost[host] = {
+          code: err.code || (err.response ? `HTTP_${err.response.status}` : "UNKNOWN"),
+          message: err.message || "Unknown error"
+        };
         // Continue to next host or retry
       }
     }
   }
 
-  // Timeout reached - build descriptive error message
+  // Timeout reached - build descriptive error message with per-host diagnostics
   const elapsed = Date.now() - startTime;
-  const portAvailable = await checkPortAvailable(4723);
   const platform = process.platform;
+  
+  // Collect port status for each host
+  const portStatusPerHost = {};
+  for (const host of hosts) {
+    portStatusPerHost[host] = await checkPortAvailable(4723, host);
+  }
   
   let errorMsg = `Appium failed to start within ${Math.round(elapsed / 1000)} seconds.\n`;
   errorMsg += `Platform: ${platform}\n`;
-  errorMsg += `Port 4723 status: ${portAvailable ? "available (not bound)" : "in use (bound)"}\n`;
+  errorMsg += `\nPort 4723 diagnostics per host:\n`;
   
-  if (lastError) {
-    errorMsg += `Last connection error: ${lastError.message}\n`;
+  for (const host of hosts) {
+    const portStatus = portStatusPerHost[host];
+    const portStatusStr = portStatus.available ? "available (not bound)" : "in use (bound)";
+    const portErrorStr = portStatus.error 
+      ? ` [error: ${portStatus.error.code} - ${portStatus.error.message}]`
+      : "";
+    
+    const connError = lastErrorPerHost[host];
+    const connErrorStr = connError 
+      ? `${connError.code} - ${connError.message}`
+      : "none";
+    
+    errorMsg += `  ${host}:\n`;
+    errorMsg += `    Port status: ${portStatusStr}${portErrorStr}\n`;
+    errorMsg += `    Last connection error: ${connErrorStr}\n`;
   }
   
   if (platform === "win32") {
