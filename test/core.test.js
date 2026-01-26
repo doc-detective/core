@@ -892,4 +892,30 @@ describe("getRunner() function", function () {
     const { checkPortAvailable } = require("../src/tests");
     assert.ok(typeof checkPortAvailable === "function", "checkPortAvailable should be exported");
   });
+
+  it("should navigate to local server using runStep", async function () {
+    this.timeout(60000); // 60s timeout for navigation test
+    
+    let cleanup;
+    try {
+      const result = await getRunner();
+      cleanup = result.cleanup;
+      const { runStep, runner } = result;
+
+      // Use runStep to navigate to local echo server
+      const goToResult = await runStep({
+        config: { logLevel: "debug" },
+        driver: runner,
+        step: { goTo: "http://localhost:8092/index.html" }
+      });
+
+      assert.strictEqual(goToResult.status, "PASS", `goTo step should pass: ${goToResult.description}`);
+
+      // Verify navigation worked using runner directly
+      const title = await runner.getTitle();
+      assert.ok(title, "should get page title");
+    } finally {
+      if (cleanup) await cleanup();
+    }
+  });
 });
