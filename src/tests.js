@@ -561,7 +561,7 @@ async function runSpecs({ resolvedTests }) {
               );
               context.browser.headless = true;
               caps = getDriverCapabilities({
-                config: config,
+                runnerDetails: runnerDetails,
                 name: context.browser.name,
                 options: {
                   width: context.browser?.window?.width || 1200,

@@ -20,7 +20,7 @@
             "path": "crop.png",
             "directory": "static/images",
             "maxVariation": 0.1,
-            "crop": "#searchbox_input"
+            "crop": "#search_form_input_homepage"
           }
         },
         {
@@ -30,7 +30,7 @@
             "directory": "static/images",
             "maxVariation": 0.1,
             "crop": {
-              "selector": "#searchbox_input",
+              "selector": "#search_form_input_homepage",
               "padding": 5
             }
           }
@@ -42,7 +42,7 @@
             "directory": "static/images",
             "maxVariation": 0.1,
             "crop": {
-              "selector": "#searchbox_input",
+              "selector": "#search_form_input_homepage",
               "padding": {
                 "top": 5,
                 "right": 5,
