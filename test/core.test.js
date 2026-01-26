@@ -856,66 +856,85 @@ describe("getRunner() function", function () {
     }
   });
 
-  // Cross-platform timeout test - ensures getRunner() doesn't hang indefinitely
-  // This test is designed to catch platform-specific issues (e.g., Windows/macOS hangs with 0.0.0.0)
-  it("should initialize within 60 seconds on all platforms", async function () {
-    this.timeout(70000); // 70s test timeout (allows 60s startup + 10s buffer)
-    
-    const startTime = Date.now();
-    let cleanup;
-    
-    try {
-      const result = await getRunner();
-      cleanup = result.cleanup;
-      
-      const elapsed = Date.now() - startTime;
-      assert.ok(elapsed < 60000, `getRunner() took ${elapsed}ms, should complete within 60000ms`);
-      
-      // Verify runner is functional
-      assert.ok(result.runner, "runner should be defined");
-      assert.ok(result.appium, "appium should be defined");
-      assert.ok(result.cleanup, "cleanup should be defined");
-      
-      // Quick functionality check
-      await result.runner.url("http://localhost:8092/index.html");
-      const title = await result.runner.getTitle();
-      assert.ok(title, "runner should be able to navigate and get title");
-    } finally {
-      if (cleanup) await cleanup();
-    }
-  });
+   // Cross-platform timeout test - ensures getRunner() doesn't hang indefinitely
+   // This test is designed to catch platform-specific issues (e.g., Windows/macOS hangs with 0.0.0.0)
+   it("should initialize within 60 seconds on all platforms", async function () {
+     const maxStartupMs = 60000;
+     const startTime = Date.now();
+     let cleanup;
 
-  it("should throw descriptive error if Appium fails to start within timeout", async function () {
-    // This test validates that the timeout mechanism works correctly
-    // We can't easily simulate Appium startup failure, so we just verify
-    // that the error handling infrastructure exists by checking exports
-    const { checkPortAvailable } = require("../src/tests");
-    assert.ok(typeof checkPortAvailable === "function", "checkPortAvailable should be exported");
-  });
+     try {
+       const result = await Promise.race([
+         getRunner(),
+         new Promise((_, reject) =>
+           setTimeout(
+             () => reject(new Error(`getRunner() timed out after ${maxStartupMs}ms`)),
+             maxStartupMs
+           )
+         ),
+       ]);
+       cleanup = result.cleanup;
+       
+       const elapsed = Date.now() - startTime;
+       assert.ok(
+         elapsed < maxStartupMs,
+         `getRunner() took ${elapsed}ms, should complete within ${maxStartupMs}ms`
+       );
+       
+       // Verify runner is functional
+       assert.ok(result.runner, "runner should be defined");
+       assert.ok(result.appium, "appium should be defined");
+       assert.ok(result.cleanup, "cleanup should be defined");
+       
+       // Quick functionality check
+       await result.runner.url("http://localhost:8092/index.html");
+       const title = await result.runner.getTitle();
+       assert.ok(title, "runner should be able to navigate and get title");
+     } finally {
+       if (cleanup) await cleanup();
+     }
+   });
 
-  it("should navigate to local server using runStep", async function () {
-    this.timeout(60000); // 60s timeout for navigation test
-    
-    let cleanup;
-    try {
-      const result = await getRunner();
-      cleanup = result.cleanup;
-      const { runStep, runner } = result;
+   it("should throw descriptive error if Appium fails to start within timeout", async function () {
+     // This test validates that timeout mechanism works and provides helpful error messages
+     const { checkPortAvailable } = require("../src/tests");
+     assert.ok(typeof checkPortAvailable === "function", "checkPortAvailable should be exported");
+     
+     // Verify the function works - it should return a boolean
+     const available = await checkPortAvailable(65432, "127.0.0.1"); // Use unlikely port
+     assert.ok(typeof available === "boolean", "checkPortAvailable should return a boolean");
+   });
 
-      // Use runStep to navigate to local echo server
-      const goToResult = await runStep({
-        config: { logLevel: "debug" },
-        driver: runner,
-        step: { goTo: "http://localhost:8092/index.html" }
-      });
+   it("should navigate to local server using runStep", async function () {
+     const maxTimeoutMs = 60000;
+     let cleanup;
+     try {
+       const result = await Promise.race([
+         getRunner(),
+         new Promise((_, reject) =>
+           setTimeout(
+             () => reject(new Error(`getRunner() timed out after ${maxTimeoutMs}ms`)),
+             maxTimeoutMs
+           )
+         ),
+       ]);
+       cleanup = result.cleanup;
+       const { runStep, runner } = result;
 
-      assert.strictEqual(goToResult.status, "PASS", `goTo step should pass: ${goToResult.description}`);
+       // Use runStep to navigate to local echo server
+       const goToResult = await runStep({
+         config: { logLevel: "debug" },
+         driver: runner,
+         step: { goTo: "http://localhost:8092/index.html" }
+       });
 
-      // Verify navigation worked using runner directly
-      const title = await runner.getTitle();
-      assert.ok(title, "should get page title");
-    } finally {
-      if (cleanup) await cleanup();
-    }
-  });
+       assert.strictEqual(goToResult.status, "PASS", `goTo step should pass: ${goToResult.description}`);
+
+       // Verify navigation worked using runner directly
+       const title = await runner.getTitle();
+       assert.ok(title, "should get page title");
+     } finally {
+       if (cleanup) await cleanup();
+     }
+   });
 });

@@ -416,16 +416,23 @@ async function runSpecs({ resolvedTests }) {
   // Determine which apps are required
   const appiumRequired = isAppiumRequired(specs);
 
-  // Warm up Appium
-  if (appiumRequired) {
-    // Set Appium home directory
-    setAppiumHome();
-    // Start Appium server
-    appium = spawn("npx", ["appium"], {
-      shell: true,
-      windowsHide: true,
-      cwd: path.join(__dirname, ".."),
-    });
+   // Warm up Appium
+   if (appiumRequired) {
+     // Check port availability before spawning
+     const portFree = await checkPortAvailable(4723, "127.0.0.1");
+     if (!portFree) {
+       const message = "Appium port 4723 is already in use. Stop the process using it or set a different port.";
+       log(config, "error", message);
+       throw new Error(message);
+     }
+     // Set Appium home directory
+     setAppiumHome();
+     // Start Appium server
+     appium = spawn("npx", ["appium"], {
+       shell: true,
+       windowsHide: true,
+       cwd: path.join(__dirname, ".."),
+     });
     appium.stdout.on("data", (data) => {
       // console.log(`stdout: ${data}`);
     });
@@ -958,10 +965,10 @@ async function checkPortAvailable(port, host = "127.0.0.1") {
   return new Promise((resolve) => {
     const server = net.createServer();
     server.once("error", (err) => {
-      if (err.code === "EADDRINUSE") {
-        resolve(false); // Port is in use
+      if (["EADDRINUSE", "EACCES", "EADDRNOTAVAIL"].includes(err.code)) {
+        resolve(false); // Port is not available
       } else {
-        resolve(true); // Other error, assume available
+        resolve(true); // Unknown error, assume available
       }
     });
     server.once("listening", () => {
@@ -981,18 +988,27 @@ async function checkPortAvailable(port, host = "127.0.0.1") {
  */
 async function appiumIsReady(timeoutMs = 60000) {
   const startTime = Date.now();
+  const deadline = startTime + timeoutMs;
   const hosts = ["127.0.0.1", "localhost"];
   let lastError = null;
   let successHost = null;
+  const lastErrorPerHost = {};
 
-  while (Date.now() - startTime < timeoutMs) {
-    // Retry delay
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+  while (Date.now() < deadline) {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) break;
+
+    // Retry delay - clamp to remaining time
+    const sleepMs = Math.min(1000, remaining);
+    await new Promise((resolve) => setTimeout(resolve, sleepMs));
 
     for (const host of hosts) {
+      const hostRemaining = deadline - Date.now();
+      if (hostRemaining <= 0) break;
+
       try {
         const resp = await axios.get(`http://${host}:4723/status`, {
-          timeout: 5000, // 5 second request timeout
+          timeout: Math.min(5000, Math.max(100, hostRemaining)), // Clamp to remaining time
         });
         if (resp.status === 200) {
           successHost = host;
@@ -1000,6 +1016,7 @@ async function appiumIsReady(timeoutMs = 60000) {
         }
       } catch (err) {
         lastError = err;
+        lastErrorPerHost[host] = err;
         // Continue to next host or retry
       }
     }
@@ -1007,12 +1024,38 @@ async function appiumIsReady(timeoutMs = 60000) {
 
   // Timeout reached - build descriptive error message
   const elapsed = Date.now() - startTime;
-  const portAvailable = await checkPortAvailable(4723);
   const platform = process.platform;
+  const remaining = Math.max(0, deadline - Date.now());
   
   let errorMsg = `Appium failed to start within ${Math.round(elapsed / 1000)} seconds.\n`;
   errorMsg += `Platform: ${platform}\n`;
-  errorMsg += `Port 4723 status: ${portAvailable ? "available (not bound)" : "in use (bound)"}\n`;
+  
+  // Check port availability with clamped timeout if time remains
+  let portAvailable = null;
+  if (remaining > 0) {
+    const checkDeadline = Date.now() + Math.min(1000, remaining);
+    try {
+      portAvailable = await Promise.race([
+        checkPortAvailable(4723),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Port check timeout")), checkDeadline - Date.now())
+        ),
+      ]);
+    } catch {
+      portAvailable = null; // Couldn't determine port status
+    }
+  }
+  
+  if (portAvailable !== null) {
+    errorMsg += `Port 4723 status: ${portAvailable ? "available (not bound)" : "in use (bound)"}\n`;
+  }
+  
+  // Include per-host diagnostics
+  for (const host of hosts) {
+    if (lastErrorPerHost[host]) {
+      errorMsg += `${host} connection error: ${lastErrorPerHost[host].message}\n`;
+    }
+  }
   
   if (lastError) {
     errorMsg += `Last connection error: ${lastError.message}\n`;
