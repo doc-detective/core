@@ -862,18 +862,22 @@ describe("getRunner() function", function () {
      const maxStartupMs = 60000;
      const startTime = Date.now();
      let cleanup;
+     let timeoutId;
 
      try {
        const result = await Promise.race([
          getRunner(),
-         new Promise((_, reject) =>
-           setTimeout(
+         new Promise((_, reject) => {
+           timeoutId = setTimeout(
              () => reject(new Error(`getRunner() timed out after ${maxStartupMs}ms`)),
              maxStartupMs
-           )
-         ),
+           );
+         }),
        ]);
        cleanup = result.cleanup;
+       
+       // Clear timeout on success
+       clearTimeout(timeoutId);
        
        const elapsed = Date.now() - startTime;
        assert.ok(
@@ -891,6 +895,7 @@ describe("getRunner() function", function () {
        const title = await result.runner.getTitle();
        assert.ok(title, "runner should be able to navigate and get title");
      } finally {
+       if (timeoutId) clearTimeout(timeoutId);
        if (cleanup) await cleanup();
      }
    });
@@ -905,36 +910,42 @@ describe("getRunner() function", function () {
      assert.ok(typeof available === "boolean", "checkPortAvailable should return a boolean");
    });
 
-   it("should navigate to local server using runStep", async function () {
-     const maxTimeoutMs = 60000;
-     let cleanup;
-     try {
-       const result = await Promise.race([
-         getRunner(),
-         new Promise((_, reject) =>
-           setTimeout(
-             () => reject(new Error(`getRunner() timed out after ${maxTimeoutMs}ms`)),
-             maxTimeoutMs
-           )
-         ),
-       ]);
-       cleanup = result.cleanup;
-       const { runStep, runner } = result;
+    it("should navigate to local server using runStep", async function () {
+      const maxTimeoutMs = 60000;
+      let cleanup;
+      let timeoutId;
+      try {
+        const result = await Promise.race([
+          getRunner(),
+          new Promise((_, reject) => {
+            timeoutId = setTimeout(
+              () => reject(new Error(`getRunner() timed out after ${maxTimeoutMs}ms`)),
+              maxTimeoutMs
+            );
+          }),
+        ]);
+        cleanup = result.cleanup;
+        
+        // Clear timeout on success
+        clearTimeout(timeoutId);
+        
+        const { runStep, runner } = result;
 
-       // Use runStep to navigate to local echo server
-       const goToResult = await runStep({
-         config: { logLevel: "debug" },
-         driver: runner,
-         step: { goTo: "http://localhost:8092/index.html" }
-       });
+        // Use runStep to navigate to local echo server
+        const goToResult = await runStep({
+          config: { logLevel: "debug" },
+          driver: runner,
+          step: { goTo: "http://localhost:8092/index.html" }
+        });
 
-       assert.strictEqual(goToResult.status, "PASS", `goTo step should pass: ${goToResult.description}`);
+        assert.strictEqual(goToResult.status, "PASS", `goTo step should pass: ${goToResult.description}`);
 
-       // Verify navigation worked using runner directly
-       const title = await runner.getTitle();
-       assert.ok(title, "should get page title");
-     } finally {
-       if (cleanup) await cleanup();
-     }
-   });
+        // Verify navigation worked using runner directly
+        const title = await runner.getTitle();
+        assert.ok(title, "should get page title");
+      } finally {
+        if (timeoutId) clearTimeout(timeoutId);
+        if (cleanup) await cleanup();
+      }
+    });
 });

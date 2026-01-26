@@ -418,10 +418,25 @@ async function runSpecs({ resolvedTests }) {
 
    // Warm up Appium
    if (appiumRequired) {
-     // Check port availability before spawning
-     const portFree = await checkPortAvailable(4723, "127.0.0.1");
-     if (!portFree) {
-       const message = "Appium port 4723 is already in use. Stop the process using it or set a different port.";
+     // Check port availability before spawning (probe both hosts like appiumIsReady does)
+     const hosts = ["127.0.0.1", "localhost"];
+     let portAvailableOnAnyHost = false;
+     const hostStatuses = {};
+     
+     for (const host of hosts) {
+       const isAvailable = await checkPortAvailable(4723, host);
+       hostStatuses[host] = isAvailable;
+       if (isAvailable) {
+         portAvailableOnAnyHost = true;
+       }
+     }
+     
+     if (!portAvailableOnAnyHost) {
+       let message = "Appium port 4723 is already in use. Stop the process using it or set a different port.\n";
+       message += "Port availability check results:\n";
+       for (const host of hosts) {
+         message += `  ${host}: ${hostStatuses[host] ? "available" : "unavailable"}\n`;
+       }
        log(config, "error", message);
        throw new Error(message);
      }
@@ -1008,7 +1023,7 @@ async function appiumIsReady(timeoutMs = 60000) {
 
       try {
         const resp = await axios.get(`http://${host}:4723/status`, {
-          timeout: Math.min(5000, Math.max(100, hostRemaining)), // Clamp to remaining time
+          timeout: Math.min(5000, hostRemaining), // Clamp to remaining time, no minimum
         });
         if (resp.status === 200) {
           successHost = host;
