@@ -20,7 +20,7 @@
             "path": "crop.png",
             "directory": "static/images",
             "maxVariation": 0.1,
-            "crop": "#search_form_input_homepage"
+            "crop": "input[name=\"q\"]"
           }
         },
         {
@@ -30,7 +30,7 @@
             "directory": "static/images",
             "maxVariation": 0.1,
             "crop": {
-              "selector": "#search_form_input_homepage",
+              "selector": "input[name=\"q\"]",
               "padding": 5
             }
           }
@@ -42,7 +42,7 @@
             "directory": "static/images",
             "maxVariation": 0.1,
             "crop": {
-              "selector": "#search_form_input_homepage",
+              "selector": "input[name=\"q\"]",
               "padding": {
                 "top": 5,
                 "right": 5,

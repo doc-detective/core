@@ -9,7 +9,7 @@
           },
           {
             "action": "find",
-            "selector": "#search_form_input_homepage",
+            "selector": "input[name=\"q\"]",
             "click": {
               "button": "right"
             }
