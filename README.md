@@ -1,3 +1,6 @@
+> [!IMPORTANT]
+> This repository is archived. All code and functionality has been merged into [doc-detective/doc-detective](https://github.com/doc-detective/doc-detective).
+
 # Doc Detective Core
 
 ![Current version](https://img.shields.io/github/package-json/v/doc-detective/doc-detective-core?color=orange)
