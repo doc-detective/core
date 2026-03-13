@@ -1,4 +1,5 @@
 const { validate } = require("doc-detective-common");
+const { log } = require("../utils");
 const { instantiateCursor } = require("./moveTo");
 const path = require("path");
 const fs = require("fs");
@@ -99,8 +100,9 @@ async function startRecording({ config, context, step, driver }) {
     await driver.execute(() => (document.title = "RECORDER"));
     config.recording.tab = await driver.getWindowHandle();
 
-    // Start recording
-    const recorder = await driver.execute((baseName) => {
+    // Start recording using executeAsync so we properly wait for
+    // getDisplayMedia() to resolve before switching tabs.
+    const recorderStarted = await driver.executeAsync((baseName, done) => {
       let stream;
       let recorder;
       const displayMediaOptions = {
@@ -131,6 +133,8 @@ async function startRecording({ config, context, step, driver }) {
         stream = await startCapture(displayMediaOptions);
         if (stream) {
           await recordStream(stream);
+        } else {
+          done(false);
         }
         return stream;
       }
@@ -140,6 +144,10 @@ async function startRecording({ config, context, step, driver }) {
 
         window.recorder.ondataavailable = (event) => data.push(event.data);
         window.recorder.start();
+
+        // Signal that recording has started successfully.
+        // executeAsync resolves here; the rest continues in the browser.
+        done(true);
 
         let stopped = new Promise((resolve, reject) => {
           window.recorder.onstop = resolve;
@@ -163,6 +171,24 @@ async function startRecording({ config, context, step, driver }) {
       }
       captureAndDownload();
     }, baseName);
+
+    if (!recorderStarted) {
+      config.recording = null;
+      result.status = "FAIL";
+      result.description =
+        "Failed to start recording. getDisplayMedia may have been rejected. " +
+        "On macOS, ensure Chrome has screen recording permission in " +
+        "System Preferences > Privacy & Security > Screen Recording.";
+      log(config, "error", result.description);
+      // Clean up: close the recorder tab and switch back
+      await driver.closeWindow();
+      await driver.switchToWindow(originalTab);
+      await driver.execute((documentTitle) => {
+        document.title = documentTitle;
+      }, documentTitle);
+      return result;
+    }
+
     // Switch to original tab
     await driver.switchToWindow(originalTab);
     // Set document title back to original
