@@ -1,0 +1,140 @@
+{
+  "tests": [
+    {
+      "steps": [
+        {
+          "runShell": {
+            "command": "sh",
+            "args": ["-c", "echo 'BACKGROUND_STARTED' && sleep 30"],
+            "scope": "persist-scope",
+            "timeout": 3000,
+            "waitUntil": {
+              "stdio": {
+                "stdout": "BACKGROUND_STARTED"
+              }
+            }
+          }
+        },
+        {
+          "runShell": "echo 'Step 2: doing work'"
+        },
+        {
+          "runShell": "echo 'Step 3: more work'"
+        },
+        {
+          "runShell": "echo 'Step 4: still more work'"
+        },
+        {
+          "terminateScope": {
+            "scope": "persist-scope"
+          }
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "runShell": {
+            "command": "sh",
+            "args": ["-c", "echo 'FIRST_INSTANCE' && sleep 10"],
+            "scope": "reusable-scope",
+            "timeout": 3000,
+            "waitUntil": {
+              "stdio": {
+                "stdout": "FIRST_INSTANCE"
+              }
+            }
+          }
+        },
+        {
+          "terminateScope": {
+            "scope": "reusable-scope"
+          }
+        },
+        {
+          "runShell": {
+            "command": "sh",
+            "args": ["-c", "echo 'SECOND_INSTANCE' && sleep 10"],
+            "scope": "reusable-scope",
+            "timeout": 3000,
+            "waitUntil": {
+              "stdio": {
+                "stdout": "SECOND_INSTANCE"
+              }
+            }
+          }
+        },
+        {
+          "terminateScope": {
+            "scope": "reusable-scope"
+          }
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "runShell": {
+            "command": "sh",
+            "args": ["-c", "echo 'AUTO_CLEANUP_TEST' && sleep 60"],
+            "scope": "auto-cleanup-scope",
+            "timeout": 3000,
+            "waitUntil": {
+              "stdio": {
+                "stdout": "AUTO_CLEANUP_TEST"
+              }
+            }
+          }
+        },
+        {
+          "runShell": "echo 'Test ends here - scope should be auto-cleaned'"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "runShell": {
+            "command": "sh",
+            "args": ["-c", "echo 'INDEPENDENT_TEST' && sleep 10"],
+            "scope": "independent-scope",
+            "timeout": 3000,
+            "waitUntil": {
+              "stdio": {
+                "stdout": "INDEPENDENT_TEST"
+              }
+            }
+          }
+        },
+        {
+          "terminateScope": {
+            "scope": "independent-scope"
+          }
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "runShell": {
+            "command": "sh",
+            "args": ["-c", "echo \"PWD: $(pwd)\" && echo 'DIR_READY' && sleep 10"],
+            "scope": "workdir-scope",
+            "workingDirectory": "/tmp",
+            "timeout": 3000,
+            "waitUntil": {
+              "stdio": {
+                "stdout": "DIR_READY"
+              }
+            }
+          }
+        },
+        {
+          "terminateScope": {
+            "scope": "workdir-scope"
+          }
+        }
+      ]
+    }
+  ]
+}

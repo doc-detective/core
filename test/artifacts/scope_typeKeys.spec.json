@@ -1,0 +1,165 @@
+{
+  "tests": [
+    {
+      "steps": [
+        {
+          "runShell": {
+            "command": "sh",
+            "args": ["-c", "echo 'READY' && cat"],
+            "scope": "type-basic-scope",
+            "timeout": 3000,
+            "waitUntil": {
+              "stdio": {
+                "stdout": "READY"
+              }
+            }
+          }
+        },
+        {
+          "type": {
+            "keys": "hello world",
+            "scope": "type-basic-scope"
+          }
+        },
+        {
+          "type": {
+            "keys": "$ENTER$",
+            "scope": "type-basic-scope"
+          }
+        },
+        {
+          "terminateScope": {
+            "scope": "type-basic-scope"
+          }
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "runShell": {
+            "command": "sh",
+            "args": ["-c", "echo 'STARTED' && cat"],
+            "scope": "special-keys-scope",
+            "timeout": 3000,
+            "waitUntil": {
+              "stdio": {
+                "stdout": "STARTED"
+              }
+            }
+          }
+        },
+        {
+          "type": {
+            "keys": ["line1", "$ENTER$", "line2", "$ENTER$"],
+            "scope": "special-keys-scope"
+          }
+        },
+        {
+          "terminateScope": {
+            "scope": "special-keys-scope"
+          }
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "runShell": {
+            "command": "sh",
+            "args": ["-c", "echo 'READY' && cat"],
+            "scope": "tab-key-scope",
+            "timeout": 3000,
+            "waitUntil": {
+              "stdio": {
+                "stdout": "READY"
+              }
+            }
+          }
+        },
+        {
+          "type": {
+            "keys": ["column1", "$TAB$", "column2", "$ENTER$"],
+            "scope": "tab-key-scope"
+          }
+        },
+        {
+          "terminateScope": {
+            "scope": "tab-key-scope"
+          }
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "runShell": {
+            "command": "sh",
+            "args": ["-c", "echo '>>> ' && while read line; do echo \"You typed: $line\"; echo '>>> '; done"],
+            "scope": "repl-scope",
+            "timeout": 3000,
+            "waitUntil": {
+              "stdio": {
+                "stdout": ">>>"
+              }
+            }
+          }
+        },
+        {
+          "type": {
+            "keys": ["first command", "$ENTER$"],
+            "scope": "repl-scope"
+          }
+        },
+        {
+          "wait": 500
+        },
+        {
+          "type": {
+            "keys": ["second command", "$ENTER$"],
+            "scope": "repl-scope"
+          }
+        },
+        {
+          "terminateScope": {
+            "scope": "repl-scope"
+          }
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "runShell": {
+            "command": "sh",
+            "args": ["-c", "echo 'RUNNING' && trap 'echo INTERRUPTED' INT && while true; do sleep 1; done"],
+            "scope": "ctrl-c-scope",
+            "timeout": 3000,
+            "waitUntil": {
+              "stdio": {
+                "stdout": "RUNNING"
+              }
+            }
+          }
+        },
+        {
+          "wait": 500
+        },
+        {
+          "type": {
+            "keys": "$CTRL_C$",
+            "scope": "ctrl-c-scope"
+          }
+        },
+        {
+          "wait": 500
+        },
+        {
+          "terminateScope": {
+            "scope": "ctrl-c-scope"
+          }
+        }
+      ]
+    }
+  ]
+}

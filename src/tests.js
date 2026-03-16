@@ -20,6 +20,7 @@ const { httpRequest } = require("./tests/httpRequest");
 const { clickElement } = require("./tests/click");
 const { runCode } = require("./tests/runCode");
 const { dragAndDropElement } = require("./tests/dragAndDrop");
+const terminateScope = require("./tests/terminateScope");
 const path = require("path");
 const { spawn } = require("child_process");
 const { randomUUID } = require("crypto");
@@ -27,6 +28,7 @@ const { setAppiumHome } = require("./appium");
 const { resolveExpression } = require("./expressions");
 const { getEnvironment, getAvailableApps } = require("./config");
 const { uploadChangedFiles } = require("./integrations");
+const { ScopeRegistry } = require("./scopes");
 
 exports.runSpecs = runSpecs;
 exports.runViaApi = runViaApi;
@@ -519,6 +521,8 @@ async function runSpecs({ resolvedTests }) {
         log(config, "debug", `CONTEXT:\n${JSON.stringify(context, null, 2)}`);
 
         let driver;
+        // Create scope registry for this context
+        const scopeRegistry = new ScopeRegistry();
         // Ensure context contains a 'steps' property
         if (!context.steps) {
           context.steps = [];
@@ -647,6 +651,7 @@ async function runSpecs({ resolvedTests }) {
             step: step,
             driver: driver,
             metaValues: metaValues,
+            scopeRegistry: scopeRegistry,
             options: {
               openApiDefinitions: context.openApi || [],
             },
@@ -743,6 +748,17 @@ async function runSpecs({ resolvedTests }) {
             );
           }
         }
+        
+        // Clean up any remaining scopes for this context
+        try {
+          await scopeRegistry.cleanup();
+        } catch (error) {
+          log(
+            config,
+            "warning",
+            `Failed to cleanup scopes: ${error.message}`
+          );
+        }
       }
 
       // Parse context results to calc test result
@@ -833,6 +849,7 @@ async function runStep({
   step,
   driver,
   metaValues = {},
+  scopeRegistry,
   options = {},
 }) {
   let actionResult;
@@ -887,20 +904,23 @@ async function runStep({
     });
     config.recording = actionResult.recording;
   } else if (typeof step.runCode !== "undefined") {
-    actionResult = await runCode({ config: config, step: step });
+    actionResult = await runCode({ config: config, step: step, scopeRegistry: scopeRegistry });
   } else if (typeof step.runShell !== "undefined") {
-    actionResult = await runShell({ config: config, step: step });
+    actionResult = await runShell({ config: config, step: step, scopeRegistry: scopeRegistry });
   } else if (typeof step.screenshot !== "undefined") {
     actionResult = await saveScreenshot({
       config: config,
       step: step,
       driver: driver,
     });
+  } else if (typeof step.terminateScope !== "undefined") {
+    actionResult = await terminateScope(config, step, { scopeRegistry: scopeRegistry });
   } else if (typeof step.type !== "undefined") {
     actionResult = await typeKeys({
       config: config,
       step: step,
       driver: driver,
+      scopeRegistry: scopeRegistry,
     });
   } else if (typeof step.wait !== "undefined") {
     actionResult = await wait({ step: step, driver: driver });

@@ -3,74 +3,28 @@
     {
       "steps": [
         {
-          "goTo": "http://localhost:8092",
-          "waitUntil": {
-            "find": {
-              "selector": "button",
-              "elementText": "Standard Button",
-              "elementTestId": "standard-btn",
-              "elementAria": "Sample Standard Button",
-              "elementId": "standard-btn",
-              "elementClass": ["btn"],
-              "elementAttribute": {
-                "type": "button",
-                "value": "Standard Button"
+          "runShell": {
+            "command": "node",
+            "scope": "basic-scope",
+            "waitUntil": {
+              "stdio": {
+                "stdout": "Welcome to Node.js"
               }
             }
           }
         },
         {
-          "find": "Text Elements"
-        },
-        {
-          "find": "text-elements"
-        },
-        {
-          "find": "Sample Input Button"
-        },
-        {
-          "find": "submit-btn"
-        },
-        {
-          "find": "#tables"
-        },
-        {
-          "find": {
-            "elementText": "Text Elements"
+          "type": {
+            "scope": "basic-scope",
+            "keys": ["console.log('hello')", "$ENTER$", ".exit"]
           }
         },
         {
-          "find": {
-            "elementId": "text-elements"
-          }
+          "wait": 500
         },
         {
-          "find": {
-            "elementAria": "Sample Input Button"
-          }
-        },
-        {
-          "find": {
-            "elementTestId": "submit-btn"
-          }
-        },
-        {
-          "find": {
-            "selector": "#tables"
-          }
-        },
-        {
-          "find": {
-            "selector": "button",
-            "elementText": "Standard Button",
-            "elementTestId": "standard-btn",
-            "elementAria": "Sample Standard Button",
-            "elementId": "standard-btn",
-            "elementClass": ["btn"],
-            "elementAttribute": {
-              "type": "button",
-              "value": "Standard Button"
-            }
+          "terminateScope": {
+            "scope": "basic-scope"
           }
         }
       ]

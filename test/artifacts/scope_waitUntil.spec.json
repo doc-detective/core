@@ -1,0 +1,136 @@
+{
+  "tests": [
+    {
+      "steps": [
+        {
+          "runShell": {
+            "command": "sh",
+            "args": ["-c", "sleep 0.5 && echo 'Server listening on port 3000'"],
+            "scope": "string-pattern-scope",
+            "timeout": 5000,
+            "waitUntil": {
+              "stdio": {
+                "stdout": "listening on port"
+              }
+            }
+          }
+        },
+        {
+          "terminateScope": {
+            "scope": "string-pattern-scope"
+          }
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "runShell": {
+            "command": "sh",
+            "args": ["-c", "sleep 0.3 && echo 'Process ID: 12345 started'"],
+            "scope": "regex-pattern-scope",
+            "timeout": 5000,
+            "waitUntil": {
+              "stdio": {
+                "stdout": "/Process ID: \\d+ started/"
+              }
+            }
+          }
+        },
+        {
+          "terminateScope": {
+            "scope": "regex-pattern-scope"
+          }
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "runShell": {
+            "command": "sh",
+            "args": ["-c", "sleep 0.3 && echo 'APPLICATION READY'"],
+            "scope": "regex-case-scope",
+            "timeout": 5000,
+            "waitUntil": {
+              "stdio": {
+                "stdout": "/application ready/i"
+              }
+            }
+          }
+        },
+        {
+          "terminateScope": {
+            "scope": "regex-case-scope"
+          }
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "runShell": {
+            "command": "sh",
+            "args": ["-c", "echo 'Line 1' && sleep 0.2 && echo 'Line 2' && sleep 0.2 && echo 'READY_SIGNAL' && sleep 5"],
+            "scope": "multiline-scope",
+            "timeout": 5000,
+            "waitUntil": {
+              "stdio": {
+                "stdout": "READY_SIGNAL"
+              }
+            }
+          }
+        },
+        {
+          "terminateScope": {
+            "scope": "multiline-scope"
+          }
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "runShell": {
+            "command": "sh",
+            "args": ["-c", "echo 'IMMEDIATE' && sleep 5"],
+            "scope": "fast-output-scope",
+            "timeout": 3000,
+            "waitUntil": {
+              "stdio": {
+                "stdout": "IMMEDIATE"
+              }
+            }
+          }
+        },
+        {
+          "terminateScope": {
+            "scope": "fast-output-scope"
+          }
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "runShell": {
+            "command": "sh",
+            "args": ["-c", "sleep 1 && echo 'DELAYED_READY' && sleep 10"],
+            "scope": "delayed-scope",
+            "timeout": 5000,
+            "waitUntil": {
+              "stdio": {
+                "stdout": "DELAYED_READY"
+              }
+            }
+          }
+        },
+        {
+          "terminateScope": {
+            "scope": "delayed-scope"
+          }
+        }
+      ]
+    }
+  ]
+}

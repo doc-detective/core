@@ -37,7 +37,7 @@ function createTempScript(code, language) {
 }
 
 // Run gather, compile, and run code.
-async function runCode({ config, step }) {
+async function runCode({ config, step, scopeRegistry }) {
   const result = {
     status: "PASS",
     description: "Executed code.",
@@ -113,10 +113,19 @@ async function runCode({ config, step }) {
         args: [scriptPath, ...step.runCode.args],
       },
     };
+    
+    // Pass through scope and waitUntil if specified
+    if (step.runCode.scope) {
+      shellStep.runShell.scope = step.runCode.scope;
+    }
+    if (step.runCode.waitUntil) {
+      shellStep.runShell.waitUntil = step.runCode.waitUntil;
+    }
+    
     delete shellStep.runCode;
 
     // Execute script using runShell
-    const shellResult = await runShell({ config: config, step: shellStep });
+    const shellResult = await runShell({ config: config, step: shellStep, scopeRegistry });
 
     // Copy results
     result.status = shellResult.status;
