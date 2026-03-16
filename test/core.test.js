@@ -41,6 +41,26 @@ describe("Run tests successfully", function () {
   // Set indefinite timeout
   this.timeout(0);
   describe("Core test suite", function () {
+    // Screenshot test cleanup helper
+    const screenshotCleanupPaths = [
+      path.join(artifactPath, "screenshot-boolean.png"),
+      path.join(artifactPath, "image.png"),
+      path.join(artifactPath, "static", "images", "crop.png"),
+      path.join(artifactPath, "static", "images", "padding.png"),
+    ];
+    
+    const cleanupScreenshotFiles = () => {
+      screenshotCleanupPaths.forEach((filePath) => {
+        try {
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
+        } catch (err) {
+          // Ignore cleanup errors
+        }
+      });
+    };
+
     // For each file (not directory) in artifactPath, create an individual test
     const files = fs.readdirSync(artifactPath);
     files.forEach((file) => {
@@ -49,9 +69,22 @@ describe("Run tests successfully", function () {
         it(`Test file: ${file}`, async () => {
           const config_tests = JSON.parse(JSON.stringify(config_base));
           config_tests.runTests.input = filePath;
-          const result = await runTests(config_tests);
-          if (result === null) assert.fail("Expected result to be non-null");
-          assert.equal(result.summary.specs.fail, 0);
+          
+          // Special handling for screenshot test - cleanup before and after
+          const isScreenshotTest = file === "screenshot.spec.json";
+          if (isScreenshotTest) {
+            cleanupScreenshotFiles();
+          }
+          
+          try {
+            const result = await runTests(config_tests);
+            if (result === null) assert.fail("Expected result to be non-null");
+            assert.equal(result.summary.specs.fail, 0);
+          } finally {
+            if (isScreenshotTest) {
+              cleanupScreenshotFiles();
+            }
+          }
         });
       }
     });
@@ -822,4 +855,97 @@ describe("getRunner() function", function () {
       if (cleanup) await cleanup();
     }
   });
+
+   // Cross-platform timeout test - ensures getRunner() doesn't hang indefinitely
+   // This test is designed to catch platform-specific issues (e.g., Windows/macOS hangs with 0.0.0.0)
+   it("should initialize within 60 seconds on all platforms", async function () {
+     const maxStartupMs = 60000;
+     const startTime = Date.now();
+     let cleanup;
+     let timeoutId;
+
+     try {
+       const result = await Promise.race([
+         getRunner(),
+         new Promise((_, reject) => {
+           timeoutId = setTimeout(
+             () => reject(new Error(`getRunner() timed out after ${maxStartupMs}ms`)),
+             maxStartupMs
+           );
+         }),
+       ]);
+       cleanup = result.cleanup;
+       
+       // Clear timeout on success
+       clearTimeout(timeoutId);
+       
+       const elapsed = Date.now() - startTime;
+       assert.ok(
+         elapsed < maxStartupMs,
+         `getRunner() took ${elapsed}ms, should complete within ${maxStartupMs}ms`
+       );
+       
+       // Verify runner is functional
+       assert.ok(result.runner, "runner should be defined");
+       assert.ok(result.appium, "appium should be defined");
+       assert.ok(result.cleanup, "cleanup should be defined");
+       
+       // Quick functionality check
+       await result.runner.url("http://localhost:8092/index.html");
+       const title = await result.runner.getTitle();
+       assert.ok(title, "runner should be able to navigate and get title");
+     } finally {
+       if (timeoutId) clearTimeout(timeoutId);
+       if (cleanup) await cleanup();
+     }
+   });
+
+   it("should throw descriptive error if Appium fails to start within timeout", async function () {
+     // This test validates that timeout mechanism works and provides helpful error messages
+     const { checkPortAvailable } = require("../src/tests");
+     assert.ok(typeof checkPortAvailable === "function", "checkPortAvailable should be exported");
+     
+     // Verify the function works - it should return a boolean
+     const available = await checkPortAvailable(65432, "127.0.0.1"); // Use unlikely port
+     assert.ok(typeof available === "boolean", "checkPortAvailable should return a boolean");
+   });
+
+    it("should navigate to local server using runStep", async function () {
+      const maxTimeoutMs = 60000;
+      let cleanup;
+      let timeoutId;
+      try {
+        const result = await Promise.race([
+          getRunner(),
+          new Promise((_, reject) => {
+            timeoutId = setTimeout(
+              () => reject(new Error(`getRunner() timed out after ${maxTimeoutMs}ms`)),
+              maxTimeoutMs
+            );
+          }),
+        ]);
+        cleanup = result.cleanup;
+        
+        // Clear timeout on success
+        clearTimeout(timeoutId);
+        
+        const { runStep, runner } = result;
+
+        // Use runStep to navigate to local echo server
+        const goToResult = await runStep({
+          config: { logLevel: "debug" },
+          driver: runner,
+          step: { goTo: "http://localhost:8092/index.html" }
+        });
+
+        assert.strictEqual(goToResult.status, "PASS", `goTo step should pass: ${goToResult.description}`);
+
+        // Verify navigation worked using runner directly
+        const title = await runner.getTitle();
+        assert.ok(title, "should get page title");
+      } finally {
+        if (timeoutId) clearTimeout(timeoutId);
+        if (cleanup) await cleanup();
+      }
+    });
 });

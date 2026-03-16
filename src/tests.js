@@ -1,6 +1,7 @@
 const kill = require("tree-kill");
 const wdio = require("webdriverio");
 const os = require("os");
+const net = require("net");
 const { log, replaceEnvs } = require("./utils");
 const axios = require("axios");
 const { instantiateCursor } = require("./tests/moveTo");
@@ -31,6 +32,7 @@ const { uploadChangedFiles } = require("./integrations");
 exports.runSpecs = runSpecs;
 exports.runViaApi = runViaApi;
 exports.getRunner = getRunner;
+exports.checkPortAvailable = checkPortAvailable;
 // exports.appiumStart = appiumStart;
 // exports.appiumIsReady = appiumIsReady;
 // exports.driverStart = driverStart;
@@ -380,6 +382,7 @@ async function runSpecs({ resolvedTests }) {
   const availableApps = runnerDetails.availableApps;
   const metaValues = { specs: {} };
   let appium;
+  let appiumHost;
   const report = {
     summary: {
       specs: {
@@ -413,24 +416,52 @@ async function runSpecs({ resolvedTests }) {
   // Determine which apps are required
   const appiumRequired = isAppiumRequired(specs);
 
-  // Warm up Appium
-  if (appiumRequired) {
-    // Set Appium home directory
-    setAppiumHome();
-    // Start Appium server
-    appium = spawn("npx", ["appium"], {
-      shell: true,
-      windowsHide: true,
-      cwd: path.join(__dirname, ".."),
-    });
+   // Warm up Appium
+   if (appiumRequired) {
+     // Check port availability before spawning (probe both hosts like appiumIsReady does)
+     const hosts = ["127.0.0.1", "localhost"];
+     let portAvailableOnAnyHost = false;
+     const hostStatuses = {};
+     
+     for (const host of hosts) {
+       const isAvailable = await checkPortAvailable(4723, host);
+       hostStatuses[host] = isAvailable;
+       if (isAvailable) {
+         portAvailableOnAnyHost = true;
+       }
+     }
+     
+     if (!portAvailableOnAnyHost) {
+       let message = "Appium port 4723 is already in use. Stop the process using it or set a different port.\n";
+       message += "Port availability check results:\n";
+       for (const host of hosts) {
+         message += `  ${host}: ${hostStatuses[host] ? "available" : "unavailable"}\n`;
+       }
+       log(config, "error", message);
+       throw new Error(message);
+     }
+     // Set Appium home directory
+     setAppiumHome();
+     // Start Appium server
+     appium = spawn("npx", ["appium"], {
+       shell: true,
+       windowsHide: true,
+       cwd: path.join(__dirname, ".."),
+     });
     appium.stdout.on("data", (data) => {
       // console.log(`stdout: ${data}`);
     });
     appium.stderr.on("data", (data) => {
       // console.error(`stderr: ${data}`);
     });
-    await appiumIsReady();
-    log(config, "debug", "Appium is ready.");
+    try {
+      appiumHost = await appiumIsReady();
+      log(config, "debug", `Appium is ready on ${appiumHost}.`);
+    } catch (error) {
+      // Clean up Appium process on timeout/failure
+      kill(appium.pid);
+      throw error;
+    }
   }
 
   // Iterate specs
@@ -541,7 +572,7 @@ async function runSpecs({ resolvedTests }) {
 
           // Instantiate driver
           try {
-            driver = await driverStart(caps);
+            driver = await driverStart(caps, appiumHost);
           } catch (error) {
             try {
               // If driver fails to start, try again as headless
@@ -552,7 +583,7 @@ async function runSpecs({ resolvedTests }) {
               );
               context.browser.headless = true;
               caps = getDriverCapabilities({
-                config: config,
+                runnerDetails: runnerDetails,
                 name: context.browser.name,
                 options: {
                   width: context.browser?.window?.width || 1200,
@@ -560,7 +591,7 @@ async function runSpecs({ resolvedTests }) {
                   headless: context.browser?.headless !== false,
                 },
               });
-              driver = await driverStart(caps);
+              driver = await driverStart(caps, appiumHost);
             } catch (error) {
               let errorMessage = `Failed to start context '${context.browser?.name}' on '${platform}'.`;
               if (context.browser?.name === "safari")
@@ -939,36 +970,155 @@ async function runStep({
   return actionResult;
 }
 
-// Delay execution until Appium server is available.
-async function appiumIsReady() {
-  let isReady = false;
-  while (!isReady) {
-    // Retry delay
-    // TODO: Add configurable retry delay
-    // TODO: Add configurable timeout duration
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    try {
-      let resp = await axios.get("http://0.0.0.0:4723/status");
-      if (resp.status === 200) isReady = true;
-    } catch {}
+/**
+ * Check if a port is available (not in use).
+ * @param {number} port - Port number to check
+ * @param {string} host - Host to check on (default: 127.0.0.1)
+ * @returns {Promise<boolean>} - True if port is available, false if in use
+ */
+async function checkPortAvailable(port, host = "127.0.0.1") {
+  return new Promise((resolve) => {
+    const server = net.createServer();
+    server.once("error", (err) => {
+      if (["EADDRINUSE", "EACCES", "EADDRNOTAVAIL"].includes(err.code)) {
+        resolve(false); // Port is not available
+      } else {
+        resolve(true); // Unknown error, assume available
+      }
+    });
+    server.once("listening", () => {
+      server.close();
+      resolve(true); // Port is available
+    });
+    server.listen(port, host);
+  });
+}
+
+/**
+ * Delay execution until Appium server is available.
+ * Uses 127.0.0.1 with localhost fallback for cross-platform compatibility.
+ * @param {number} timeoutMs - Maximum time to wait in milliseconds (default: 60000)
+ * @returns {Promise<string>} - The hostname that worked (127.0.0.1 or localhost)
+ * @throws {Error} - If Appium fails to start within timeout
+ */
+async function appiumIsReady(timeoutMs = 60000) {
+  const startTime = Date.now();
+  const deadline = startTime + timeoutMs;
+  const hosts = ["127.0.0.1", "localhost"];
+  let lastError = null;
+  let successHost = null;
+  const lastErrorPerHost = {};
+
+  while (Date.now() < deadline) {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) break;
+
+    // Retry delay - clamp to remaining time
+    const sleepMs = Math.min(1000, remaining);
+    await new Promise((resolve) => setTimeout(resolve, sleepMs));
+
+    for (const host of hosts) {
+      const hostRemaining = deadline - Date.now();
+      if (hostRemaining <= 0) break;
+
+      try {
+        const resp = await axios.get(`http://${host}:4723/status`, {
+          timeout: Math.min(5000, hostRemaining), // Clamp to remaining time, no minimum
+        });
+        if (resp.status === 200) {
+          successHost = host;
+          return successHost;
+        }
+      } catch (err) {
+        lastError = err;
+        lastErrorPerHost[host] = err;
+        // Continue to next host or retry
+      }
+    }
   }
-  return isReady;
+
+  // Timeout reached - build descriptive error message
+  const elapsed = Date.now() - startTime;
+  const platform = process.platform;
+  const remaining = Math.max(0, deadline - Date.now());
+  
+  let errorMsg = `Appium failed to start within ${Math.round(elapsed / 1000)} seconds.\n`;
+  errorMsg += `Platform: ${platform}\n`;
+  
+  // Check port availability with clamped timeout if time remains
+  let portAvailable = null;
+  if (remaining > 0) {
+    const checkDeadline = Date.now() + Math.min(1000, remaining);
+    try {
+      portAvailable = await Promise.race([
+        checkPortAvailable(4723),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Port check timeout")), checkDeadline - Date.now())
+        ),
+      ]);
+    } catch {
+      portAvailable = null; // Couldn't determine port status
+    }
+  }
+  
+  if (portAvailable !== null) {
+    errorMsg += `Port 4723 status: ${portAvailable ? "available (not bound)" : "in use (bound)"}\n`;
+  }
+  
+  // Include per-host diagnostics
+  for (const host of hosts) {
+    if (lastErrorPerHost[host]) {
+      errorMsg += `${host} connection error: ${lastErrorPerHost[host].message}\n`;
+    }
+  }
+  
+  if (lastError) {
+    errorMsg += `Last connection error: ${lastError.message}\n`;
+  }
+  
+  if (platform === "win32") {
+    errorMsg += "\nWindows troubleshooting:\n";
+    errorMsg += "- Check Windows Firewall settings for port 4723\n";
+    errorMsg += "- Temporarily disable antivirus software\n";
+    errorMsg += "- Run as Administrator if port binding fails\n";
+  } else if (platform === "darwin") {
+    errorMsg += "\nmacOS troubleshooting:\n";
+    errorMsg += "- Check System Preferences > Security & Privacy > Firewall\n";
+    errorMsg += "- Ensure no VPN is blocking localhost connections\n";
+  }
+  
+  throw new Error(errorMsg);
 }
 
 // Start the Appium driver specified in `capabilities`.
-async function driverStart(capabilities) {
-  const driver = await wdio.remote({
-    protocol: "http",
-    hostname: "0.0.0.0",
-    port: 4723,
-    path: "/",
-    logLevel: "error",
-    capabilities,
-    connectionRetryTimeout: 600000, // 10 minutes
-    waitforTimeout: 600000, // 10 minutes
-  });
-  driver.state = { url: "", x: null, y: null };
-  return driver;
+// Uses hostname determined by appiumIsReady() for cross-platform compatibility.
+async function driverStart(capabilities, hostname = "127.0.0.1") {
+  const hosts = hostname ? [hostname] : ["127.0.0.1", "localhost"];
+  let lastError = null;
+
+  for (const host of hosts) {
+    try {
+      const driver = await wdio.remote({
+        protocol: "http",
+        hostname: host,
+        port: 4723,
+        path: "/",
+        logLevel: "error",
+        capabilities,
+        connectionRetryTimeout: 60000, // 60 seconds (reduced from 10 minutes)
+        waitforTimeout: 60000, // 60 seconds (reduced from 10 minutes)
+      });
+      driver.state = { url: "", x: null, y: null };
+      return driver;
+    } catch (err) {
+      lastError = err;
+      // Try next hostname
+    }
+  }
+
+  throw new Error(
+    `Failed to connect to Appium driver on hosts [${hosts.join(", ")}]: ${lastError?.message || "Unknown error"}`
+  );
 }
 
 /**
@@ -1029,9 +1179,16 @@ async function getRunner(options = {}) {
     cwd: path.join(__dirname, ".."),
   });
 
-  // Wait for Appium to be ready
-  await appiumIsReady();
-  log(config, "debug", "Appium is ready for external driver.");
+  // Wait for Appium to be ready and get the working hostname
+  let appiumHost;
+  try {
+    appiumHost = await appiumIsReady();
+    log(config, "debug", `Appium is ready on ${appiumHost} for external driver.`);
+  } catch (error) {
+    // Clean up Appium process on timeout/failure
+    kill(appium.pid);
+    throw error;
+  }
 
   // Get Chrome driver capabilities
   const caps = getDriverCapabilities({
@@ -1044,10 +1201,10 @@ async function getRunner(options = {}) {
     },
   });
 
-  // Start the runner
+  // Start the runner using the hostname that worked for Appium status check
   let runner;
   try {
-    runner = await driverStart(caps);
+    runner = await driverStart(caps, appiumHost);
   } catch (error) {
     // If runner fails, attempt to set headless and retry
     try {
@@ -1057,7 +1214,7 @@ async function getRunner(options = {}) {
         "Failed to start Chrome runner. Retrying as headless."
       );
       caps["goog:chromeOptions"].args.push("--headless", "--disable-gpu");
-      runner = await driverStart(caps);
+      runner = await driverStart(caps, appiumHost);
     } catch (error) {
       // If runner fails, clean up Appium and rethrow
       kill(appium.pid);
